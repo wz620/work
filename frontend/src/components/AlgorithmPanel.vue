@@ -15,12 +15,39 @@ const props = withDefaults(defineProps<{
 }>(), { emptySubject: '登录后体验', historyRatings: () => [] })
 const emit = defineEmits<{ (e: 'result-updated', result: AlgorithmResult | null): void }>()
 
+/** 本地 movie-details.json 条目（OMDb 下载，离线可用） */
+interface LocalMovieDetail {
+  director?: string
+  actors?: string
+  plot?: string
+  rated?: string
+  runtime?: string
+  imdb_rating?: string
+  poster_local?: string
+  imdb_id?: string
+  omdb_title?: string
+  omdb_year?: string
+}
 const loading = ref(false), error = ref<unknown>(null), unavailable = ref(false)
 const result = ref<AlgorithmResult | null>(null)
 const detailsLoading = ref(false)
 const movieDetails = ref<Map<string, Movie>>(new Map())
+const localDetails = ref<Record<string, LocalMovieDetail>>({})
+const localDetailsLoaded = ref(false)
 const autoHistoryRatings = ref<Movie[]>([])
 let run = 0, detailRun = 0, histRun = 0
+
+async function fetchLocalDetails() {
+  if (localDetailsLoaded.value) return
+  try {
+    const res = await fetch('/movie-details.json', { cache: 'force-cache' })
+    if (res.ok) {
+      localDetails.value = await res.json()
+      localDetailsLoaded.value = true
+    }
+  } catch { /* 没有就算了，不影响主流程 */ }
+}
+fetchLocalDetails().catch(() => {})
 
 onScopeDispose(() => { run++; detailRun++; histRun++ })
 
@@ -194,7 +221,14 @@ const reasons = computed(() => {
           <div v-for="{ item, movie } in itemsWithDetails" :key="item.movie_id" class="recommendation-cell">
             <!-- 排名徽章 -->
             <div class="rank-badge" :class="{ 'rank-top': item.rank <= 3 }">#{{ item.rank }}</div>
-            <MovieCard v-if="movie" :movie="movie" />
+            <!-- MovieCard 传本地海报 -->
+            <MovieCard v-if="movie" :movie="movie"
+              :local-path="localDetails[item.movie_id]?.poster_local || null"
+              :director="localDetails[item.movie_id]?.director || null"
+              :imdb-rating="localDetails[item.movie_id]?.imdb_rating || null"
+              :runtime="localDetails[item.movie_id]?.runtime || null"
+              :actors="localDetails[item.movie_id]?.actors || null"
+            />
             <!-- 详情未加载完 -->
             <div v-else class="movie-card-fallback">
               <div class="poster-fallback">加载中…</div>
