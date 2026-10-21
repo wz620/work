@@ -478,5 +478,305 @@
     "imdb_id": "tt0095016",
     "omdb_title": "Die Hard",
     "omdb_year": "1988"
+  },
+  "1372": {
+    "omdb_title": "Star Trek VI: The Undiscovered Country",
+    "omdb_year": "1991",
+    "imdb_id": "tt0102975",
+    "imdb_rating": "7.0",
+    "plot": "After years of war, the Federation and the Klingon empire find themselves on the brink of a peace summit when a Klingon ship is nearly destroyed by an apparent attack from the Enterprise. Both worlds brace for what may be their deadliest encounter.",
+    "runtime": "110 min",
+    "director": "Nicholas Meyer",
+    "actors": "William Shatner, Leonard Nimoy, DeForest Kelley, James Doohan, Walter Koenig"
+  },
+  "1376": {
+    "omdb_title": "Star Trek IV: The Voyage Home",
+    "omdb_year": "1986",
+    "imdb_id": "tt0092007",
+    "imdb_rating": "7.2",
+    "plot": "When a huge alien probe enters the galaxy and begins to vaporize Earth's oceans, Kirk and his crew must travel back in time in order to bring back whales and save the planet.",
+    "runtime": "118 min",
+    "director": "Leonard Nimoy",
+    "actors": "William Shatner, Leonard Nimoy, DeForest Kelley, James Doohan, George Takei"
+  },
+  "1396": {
+    "omdb_title": "Sneakers",
+    "omdb_year": "1992",
+    "imdb_id": "tt0105435",
+    "imdb_rating": "6.9",
+    "plot": "When shadowy U.S. intelligence agents blackmail a reformed computer hacker and his eccentric team of security experts into stealing a code-breaking 'black box' from a Soviet-funded genius, they uncover a bigger conspiracy. Now, he and his 'sneakers' must save themselves and the world economy by retrieving the box from their blackmailers.",
+    "runtime": "125 min",
+    "director": "Phil Alden Robinson",
+    "actors": "Robert Redford, Sidney Poitier, David Strathairn, Dan Aykroyd, River Phoenix"
+  },
+  "1432": {
+    "omdb_title": "Metro",
+    "omdb_year": "1997",
+    "imdb_id": "tt0119664",
+    "imdb_rating": "5.7",
+    "plot": "Roper, a hostage negotiator catches a murderous bank robber after a blown heist. The bank robber escapes and immediately goes after the man who put him behind bars.",
+    "runtime": "117 min",
+    "director": "Thomas Carter",
+    "actors": "Eddie Murphy, Michael Rapaport, Kim Miyori, Art Evans, Donal Logue"
+  },
+  "145": {
+    "omdb_title": "Bad Boys",
+    "omdb_year": "1995",
+    "imdb_id": "tt0112442",
+    "imdb_rating": "6.8",
+    "plot": "Marcus Burnett is a henpecked family man. Mike Lowrey is a footloose and fancy free ladies' man. Both Miami policemen, they have 72 hours to reclaim a consignment of drugs stolen from under their station's nose. To complicate matters, in order to get the assistance of the sole witness to a murder, they have to pretend to be each other.",
+    "runtime": "119 min",
+    "director": "Michael Bay",
+    "actors": "Will Smith, Martin Lawrence, Téa Leoni, Tchéky Karyo, Joe Pantoliano"
+  },
+  "1500": {
+    "omdb_title": "Grosse Pointe Blank",
+    "omdb_year": "1997",
+    "imdb_id": "tt0119229",
+    "imdb_rating": "7.0",
+    "plot": "Hitman Martin Blank becomes a moving target after he rebuffs a fellow assassin's invitation to form a union. On the advice of his quirky assistant and neurotic psychiatrist, Martin begrudgingly heads out to Grosse Pointe, Michigan for his ten-year high school reunion, where he soon comes across the woman he jilted on prom night.",
+    "runtime": "107 min",
+    "director": "George Armitage",
+    "actors": "John Cusack, Minnie Driver, Dan Aykroyd, Joan Cusack, Alan Arkin"
+  },
+  "1639": {
+    "omdb_title": "Chasing Amy",
+    "omdb_year": "1997",
+    "imdb_id": "tt0118842",
+    "imdb_rating": "6.7",
+    "plot": "Holden and Banky are comic book artists. Everything is going good for them until they meet Alyssa, also a comic book artist. Holden falls for her, but his hopes are crushed when he finds out she's a lesbian.",
+    "runtime": "114 min",
+    "director": "Kevin Smith",
+    "actors": "Ben Affleck, Joey Lauren Adams, Jason Lee, King Mustafa Obafemi, Jason Mewes"
+  },
+  "20": {
+    "omdb_title": "Money Train",
+    "omdb_year": "1995",
+    "imdb_id": "tt0113845",
+    "imdb_rating": "5.9",
+    "plot": "When a vengeful New York transit cop decides to steal a trainload of subway fares, his foster brother—a fellow cop—tries to protect him.",
+    "runtime": "110 min",
+    "director": "Joseph Ruben",
+    "actors": "Wesley Snipes, Woody Harrelson, Jennifer Lopez, Robert Blake, Chris Cooper"
+  },
+  "2302": {
+    "omdb_title": "My Cousin Vinny",
+    "omdb_year": "1992",
+    "imdb_id": "tt0104952",
+    "imdb_rating": "7.5",
+    "plot": "Two carefree pals traveling through rural Alabama on their way back to college are mistakenly arrested and charged with murder. Fortunately, one of them has a cousin who's a lawyer - Vincent Gambini, a former auto mechanic from Brooklyn who has just passed his bar exam after his sixth try. When he arrives with his leather-clad girlfriend to try his first case, it's a real shock - for him and the Deep South!",
+    "runtime": "119 min",
+    "director": "Jonathan Lynn",
+    "actors": "Ralph Macchio, Joe Pesci, Marisa Tomei, Mitchell Whitfield, Fred Gwynne"
+  },
+  "2759": {
+    "omdb_title": "Dick",
+    "omdb_year": "1999",
+    "imdb_id": "tt0144168",
+    "imdb_rating": "6.0",
+    "plot": "Two high school girls wander off during a class trip to the White House and meet President Richard Nixon. They become the official dog walkers for Nixon's dog Checkers, and become his secret advisors during the Watergate scandal.",
+    "runtime": "94 min",
+    "director": "Andrew Fleming",
+    "actors": "Kirsten Dunst, Michelle Williams, Dan Hedaya, Will Ferrell, Bruce McCulloch"
+  },
+  "2772": {
+    "omdb_title": "Detroit Rock City",
+    "omdb_year": "1999",
+    "imdb_id": "tt0165710",
+    "imdb_rating": "6.8",
+    "plot": "In 1978, a Kiss concert was an epoch-making event. For the four teen fans in Detroit Rock City getting tickets to the sold-out show becomes the focal point of their existence. They'll do anything for tickets -- compete in a strip club's amateur-night contest, take on religious protesters, even rob a convenience store!",
+    "runtime": "95 min",
+    "director": "Adam Rifkin",
+    "actors": "Giuseppe Andrews, James DeBello, Edward Furlong, Sam Huntington, Lin Shaye"
+  },
+  "2794": {
+    "omdb_title": "National Lampoon's European Vacation",
+    "omdb_year": "1985",
+    "imdb_id": "tt0089670",
+    "imdb_rating": "6.2",
+    "plot": "The Griswolds win a vacation to Europe on a game show, and so pack their bags for the continent. They do their best to catch the flavor of Europe, but they just don't know how to be be good tourists. Besides, they have trouble taking holidays in countries where they CAN speak the language.",
+    "runtime": "95 min",
+    "director": "Amy Heckerling",
+    "actors": "Chevy Chase, Beverly D'Angelo, Dana Hill, Jason Lively, Victor Lanoux"
+  },
+  "3210": {
+    "omdb_title": "Fast Times at Ridgemont High",
+    "omdb_year": "1982",
+    "imdb_id": "tt0083929",
+    "imdb_rating": "6.8",
+    "plot": "A group of Southern-California high school students ignore their studies in favor of indulging in their teenage distractions.",
+    "runtime": "90 min",
+    "director": "Amy Heckerling",
+    "actors": "Sean Penn, Jennifer Jason Leigh, Judge Reinhold, Phoebe Cates, Brian Backer"
+  },
+  "45666": {
+    "omdb_title": "Nacho Libre",
+    "omdb_year": "2006",
+    "imdb_id": "tt0457510",
+    "imdb_rating": "6.5",
+    "plot": "Ignacio, a disrespected cook at a Mexican monastery, can barely afford to feed the orphans who live there. Inspired by a local wrestling hero, he decides to moonlight as the not-so-famous Luchador \"Nacho Libre\" to earn money for the monastery -- not to mention the admiration of beautiful nun Sister Encarnación.",
+    "runtime": "92 min",
+    "director": "Jared Hess",
+    "actors": "Jack Black, Ana de la Reguera, Héctor Jiménez, Darius Rose, Moisés Arias"
+  },
+  "46970": {
+    "omdb_title": "Talladega Nights: The Ballad of Ricky Bobby",
+    "omdb_year": "2006",
+    "imdb_id": "tt0415306",
+    "imdb_rating": "6.4",
+    "plot": "The fastest man on four wheels, Ricky Bobby, is one of the greatest drivers in NASCAR history. A big, hairy American winning machine, Ricky has everything a dimwitted daredevil could want, a luxurious mansion, a smokin' hot wife, and all the fast food he can eat. But Ricky's turbo-charged lifestyle hits an unexpected speed bump when he's bested by flamboyant Euro-idiot Jean Girard and reduced to a fear-ridden wreck.",
+    "runtime": "108 min",
+    "director": "Adam McKay",
+    "actors": "Will Ferrell, John C. Reilly, Sacha Baron Cohen, Gary Cole, Leslie Bibb"
+  },
+  "5027": {
+    "omdb_title": "Another 48 Hrs.",
+    "omdb_year": "1990",
+    "imdb_id": "tt0099044",
+    "imdb_rating": "6.0",
+    "plot": "For the past four years, San Francisco cop Jack Cates has been after an unidentified drug kingpin who calls himself the Ice Man. Jack finds a picture that proves that the Ice Man has put a price on the head of Reggie Hammond, who is scheduled to be released from prison on the next day.",
+    "runtime": "95 min",
+    "director": "Walter Hill",
+    "actors": "Eddie Murphy, Nick Nolte, Brion James, Kevin Tighe, Ed O'Ross"
+  },
+  "5110": {
+    "omdb_title": "Super Troopers",
+    "omdb_year": "2001",
+    "imdb_id": "tt0247745",
+    "imdb_rating": "6.5",
+    "plot": "Five bored, occasionally high and always ineffective Vermont state troopers must prove their worth to the governor or lose their jobs. After stumbling on a drug ring, they plan to make a bust, but a rival police force is out to steal the glory.",
+    "runtime": "100 min",
+    "director": "Jay Chandrasekhar",
+    "actors": "Jay Chandrasekhar, Kevin Heffernan, Steve Lemme, Paul Soter, Erik Stolhanske"
+  },
+  "52245": {
+    "omdb_title": "Blades of Glory",
+    "omdb_year": "2007",
+    "imdb_id": "tt0445934",
+    "imdb_rating": "6.1",
+    "plot": "When a much-publicized ice-skating scandal strips them of their gold medals, two world-class athletes skirt their way back onto the ice via a loophole that allows them to compete together as a pairs team.",
+    "runtime": "93 min",
+    "director": "Josh Gordon, Will Speck",
+    "actors": "Will Ferrell, Jon Heder, Will Arnett, Amy Poehler, Jenna Fischer"
+  },
+  "5388": {
+    "omdb_title": "Insomnia",
+    "omdb_year": "2002",
+    "imdb_id": "tt0278504",
+    "imdb_rating": "7.0",
+    "plot": "Two Los Angeles homicide detectives are dispatched to a northern town where the sun doesn't set to investigate the methodical murder of a local teen.",
+    "runtime": "118 min",
+    "director": "Christopher Nolan",
+    "actors": "Al Pacino, Robin Williams, Hilary Swank, Maura Tierney, Martin Donovan"
+  },
+  "54256": {
+    "omdb_title": "Hot Rod",
+    "omdb_year": "2007",
+    "imdb_id": "tt0787475",
+    "imdb_rating": "6.4",
+    "plot": "For Rod Kimble, performing stunts is a way of life, even though he is rather accident-prone. Poor Rod cannot even get any respect from his stepfather, Frank, who beats him up in weekly sparring matches. When Frank falls ill, Rod devises his most outrageous stunt yet to raise money for Frank's operation -- and then Rod will kick Frank's butt.",
+    "runtime": "88 min",
+    "director": "Akiva Schaffer",
+    "actors": "Andy Samberg, Isla Fisher, Jorma Taccone, Bill Hader, Danny McBride"
+  },
+  "543": {
+    "omdb_title": "So I Married an Axe Murderer",
+    "omdb_year": "1993",
+    "imdb_id": "tt0108174",
+    "imdb_rating": "6.1",
+    "plot": "Just after a bad breakup, Charlie MacKenzie falls for lovely butcher Harriet Michaels and introduces her to his parents. But, as voracious consumers of sensational tabloids, his parents soon come to suspect that Harriet is actually a notorious serial killer -- \"Mrs. X\" -- wanted in connection with a string of bizarre honeymoon killings. Thinking his parents foolish, Charlie proposes to Harriet. But while on his honeymoon with her, he begins to fear they were right.",
+    "runtime": "93 min",
+    "director": "Thomas Schlamme",
+    "actors": "Mike Myers, Nancy Travis, Anthony LaPaglia, Amanda Plummer, Brenda Fricker"
+  },
+  "5628": {
+    "omdb_title": "Wasabi",
+    "omdb_year": "2001",
+    "imdb_id": "tt0281364",
+    "imdb_rating": "6.7",
+    "plot": "Hubert is a French policeman with very sharp methods. After being forced to take 2 months off by his boss, who doesn't share his view on working methods, he goes back to Japan, where he used to work 19 years ago, to settle the probate of his girlfriend who left him shortly after marriage without a trace.",
+    "runtime": "94 min",
+    "director": "Gérard Krawczyk",
+    "actors": "Jean Reno, Ryoko Hirosue, Michel Muller, Carole Bouquet, Yoshi Oida"
+  },
+  "7007": {
+    "omdb_title": "The Last Boy Scout",
+    "omdb_year": "1991",
+    "imdb_id": "tt0102266",
+    "imdb_rating": "6.8",
+    "plot": "Somewhere in Los Angeles, the city of broken dreams, a stripper is murdered. Now, the private detective she had hired and her ex-footballer boyfriend are going to find her murderer... if they don't kill each other first. But the more they dig, the deeper they become enmeshed in a web of extortion, blackmail and corrupt politics hidden beneath the surface of professional football.",
+    "runtime": "105 min",
+    "director": "Tony Scott",
+    "actors": "Bruce Willis, Damon Wayans, Chelsea Field, Noble Willingham, Taylor Negron"
+  },
+  "71573": {
+    "omdb_title": "Whiteout",
+    "omdb_year": "2009",
+    "imdb_id": "tt0365929",
+    "imdb_rating": "5.6",
+    "plot": "The only U.S. Marshal assigned to Antarctica, Carrie Stetko will soon leave the harsh environment behind for good – in three days, the sun will set and the Amundsen-Scott Research Station will shut down for the long winter. When a body is discovered out on the open ice, Carrie's investigation into the continent's first homicide plunges her deep into a mystery that may cost her her own life.",
+    "runtime": "101 min",
+    "director": "Dominic Sena",
+    "actors": "Kate Beckinsale, Gabriel Macht, Tom Skerritt, Columbus Short, Shawn Doyle"
+  },
+  "7445": {
+    "omdb_title": "Man on Fire",
+    "omdb_year": "2004",
+    "imdb_id": "tt0328107",
+    "imdb_rating": "7.5",
+    "plot": "Jaded ex-CIA operative John Creasy reluctantly accepts a job as the bodyguard for a 10-year-old girl in Mexico City. They clash at first, but eventually bond, and when she's kidnapped he's consumed by fury and will stop at nothing to save her life.",
+    "runtime": "146 min",
+    "director": "Tony Scott",
+    "actors": "Denzel Washington, Dakota Fanning, Christopher Walken, Radha Mitchell, Marc Anthony"
+  },
+  "785": {
+    "omdb_title": "Kingpin",
+    "omdb_year": "1996",
+    "imdb_id": "tt0116778",
+    "imdb_rating": "6.5",
+    "plot": "After bowler Roy Munson swindles the wrong crowd and is left with a hook for a hand, he settles into impoverished obscurity. That is, until he uncovers the next big thing: an Amish kid named Ishmael. So, the corrupt and the hopelessly naive hit the circuit intent on settling an old score with Big Ern.",
+    "runtime": "114 min",
+    "director": "Bobby Farrelly, Peter Farrelly",
+    "actors": "Woody Harrelson, Randy Quaid, Vanessa Angel, Bill Murray, Chris Elliott"
+  },
+  "805": {
+    "omdb_title": "A Time to Kill",
+    "omdb_year": "1996",
+    "imdb_id": "tt0117913",
+    "imdb_rating": "7.4",
+    "plot": "A young lawyer defends a black man accused of murdering two white men who raped his 10-year-old daughter, sparking a rebirth of the KKK.",
+    "runtime": "149 min",
+    "director": "Joel Schumacher",
+    "actors": "Matthew McConaughey, Sandra Bullock, Samuel L. Jackson, Kevin Spacey, Ashley Judd"
+  },
+  "832": {
+    "omdb_title": "Ransom",
+    "omdb_year": "1996",
+    "imdb_id": "tt0117438",
+    "imdb_rating": "6.7",
+    "plot": "When a rich man's son is kidnapped, he cooperates with the police at first but then tries a unique tactic against the criminals.",
+    "runtime": "121 min",
+    "director": "Ron Howard",
+    "actors": "Mel Gibson, Rene Russo, Gary Sinise, Delroy Lindo, Lili Taylor"
+  },
+  "852": {
+    "omdb_title": "Tin Cup",
+    "omdb_year": "1996",
+    "imdb_id": "tt0117918",
+    "imdb_rating": "6.1",
+    "plot": "A washed up golf pro working at a driving range tries to qualify for the US Open in order to win the heart of his succesful rival's girlfriend.",
+    "runtime": "135 min",
+    "director": "Ron Shelton",
+    "actors": "Kevin Costner, Rene Russo, Don Johnson, Cheech Marin, Linda Hart"
+  },
+  "8860": {
+    "omdb_title": "Cellular",
+    "omdb_year": "2004",
+    "imdb_id": "tt0337921",
+    "imdb_rating": "6.4",
+    "plot": "A young man receives an emergency phone call on his cell phone from an older woman. She claims to have been kidnapped – and the kidnappers have targeted her husband and child next.",
+    "runtime": "94 min",
+    "director": "David R. Ellis",
+    "actors": "Kim Basinger, Chris Evans, Jason Statham, William H. Macy, Noah Emmerich"
   }
 }
