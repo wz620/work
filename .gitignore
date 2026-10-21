@@ -70,3 +70,5 @@ ibdata*
 gen_content_html.py
 simulate_business_content.py
 recommendation-screenshots/
+# Offline evaluation output (jsonl + result.json), regenerable from frozen CSVs.
+evaluation-output/
