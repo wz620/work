@@ -1,0 +1,5 @@
+# MySQL 8 caching_sha2_password RSA support; retain the accepted backend lock.
+cryptography==50.0.2
+# Student algorithms (content / itemcf / als / cold_start) depend on numpy + scipy.
+numpy==2.3.0
+scipy==1.15.3

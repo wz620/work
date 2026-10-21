@@ -1,0 +1,8 @@
+services:
+  api:
+    image: cinelab-student/cinelab-api:851bfdbd766c45f18c337c427bd443f1
+    volumes:
+      - e:\实验\CineLab-Student-Windows-1.3.0-rc1\CineLab-Student-Windows-1.3.0-rc1\recommender:/app/recommender:ro
+      - e:\实验\CineLab-Student-Windows-1.3.0-rc1\CineLab-Student-Windows-1.3.0-rc1\models:/app/models:ro
+  web:
+    image: cinelab-student/cinelab-web:c086f53bdccc4234bf0822483d794c70

@@ -1,0 +1,41 @@
+# S1/S2/S3 的真实外部服务覆盖文件（Tier-1 新增；compose.yaml 本身不改）。
+#
+# 仅在需要真实 Kafka / LLM 时手动叠加：
+#   docker compose -f compose.yaml -f compose.online.yaml up -d
+# runtime.ps1 / release.json 只认 compose.yaml，永不加载本文件，故哈希链与离线校验不受影响。
+#
+# 前置：api 镜像里需有 Kafka 客户端 → 在线重建时把 backend/requirements.online.txt
+#       追加进 deployment/backend.Dockerfile 的 pip install 步骤。
+# 说明：未设置 APP_LLM_BASE_URL／APP_LLM_API_KEY 时，S2 自动走 planner 本地规则兜底；
+#       未设置 APP_KAFKA_BOOTSTRAP 时，S3 自动走 InProcBus。因此本文件全部可选。
+name: cinelab
+
+services:
+  kafka:
+    image: bitnami/kafka:3.7
+    platform: linux/amd64
+    environment:
+      KAFKA_CFG_NODE_ID: "1"
+      KAFKA_CFG_PROCESS_ROLES: broker,controller
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    volumes: [kafka_data:/bitnami/kafka]
+    networks: [database]
+    restart: unless-stopped
+
+  api:
+    environment:
+      APP_LLM_BASE_URL: ${APP_LLM_BASE_URL:-}
+      APP_LLM_API_KEY: ${APP_LLM_API_KEY:-}
+      APP_LLM_MODEL: ${APP_LLM_MODEL:-local-rules}
+      APP_KAFKA_BOOTSTRAP: ${APP_KAFKA_BOOTSTRAP:-}
+      APP_KAFKA_TOPIC: ${APP_KAFKA_TOPIC:-cinelab.behavior.v1}
+      APP_KAFKA_GROUP: ${APP_KAFKA_GROUP:-cinelab-rt-recsys}
+
+volumes:
+  kafka_data:

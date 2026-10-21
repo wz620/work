@@ -1,0 +1,15 @@
+{
+  "status": "completed",
+  "runtime_mode": "evaluation",
+  "algorithm": "cold_start",
+  "model_version": "cold_start-v1",
+  "task_sha256": "09ce07b2092d6fd86625f5f0299ce516b0085b2372ad43a666c6a15ab2434d85",
+  "model_manifest_sha256": "b5d7f180fc90b458490798c7cd52c2115662e837962abb98de08ede26ef69fcc",
+  "dataset_version": "rec-course-v3-train5-1.0.0",
+  "split_version": "temporal-v1-cold500-train5-v3",
+  "schema_version": "student-eight-v3",
+  "partition": "cold-k1",
+  "user_count": 499,
+  "precision_at_10": 0.042084,
+  "recall_at_10": 0.007973
+}

@@ -1,0 +1,6 @@
+# 在线重建时的可选依赖（离线一键环境不安装、也不修改 requirements.lock.txt）。
+# 用途：启用真实 Kafka 事件来源（backend/app/realtime/kafka_adapter.py 内延迟导入，
+#      缺失时自动降级为进程内总线 InProcBus）。
+# 用法：在 deployment/backend.Dockerfile 的 pip install 步骤中追加
+#      -r requirements.online.txt，即可在在线构建的镜像里启用 Kafka 适配器。
+kafka-python==2.0.2
