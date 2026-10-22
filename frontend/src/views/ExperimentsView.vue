@@ -71,9 +71,9 @@ const realtimeError = ref<unknown>(null)
 const realtimeEnabled = computed(() => source.value === 'app' && !!auth.account)
 
 const BEHAVIOR_SEEDS = [
-  { event_type: 'rating', movie_id: '318', rating: 5.0, reason: '你刚给《肖申克的救赎》打了 5 分' },
-  { event_type: 'rating', movie_id: '2571', rating: 4.5, reason: '你给《黑客帝国》打了 4.5 分' },
-  { event_type: 'rating', movie_id: '50', rating: 4.0, reason: '你给《搏击俱乐部》打了 4 分' },
+  { event_type: 'rate', movie_id: '318', rating: 5.0, reason: '你刚给《肖申克的救赎》打了 5 分' },
+  { event_type: 'rate', movie_id: '2571', rating: 4.5, reason: '你给《黑客帝国》打了 4.5 分' },
+  { event_type: 'rate', movie_id: '50', rating: 4.0, reason: '你给《搏击俱乐部》打了 4 分' },
   { event_type: 'favorite', movie_id: '296', reason: '你收藏了《宝贝儿》' },
 ]
 async function triggerRealtime(event: typeof BEHAVIOR_SEEDS[number]) {
