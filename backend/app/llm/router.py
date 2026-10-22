@@ -217,6 +217,35 @@ def _local_explain(evidence: dict) -> str:
             lines.append(f"它与你评分过的 {pairs} 存在较高的协同相似度，这些共同评分模式让 ItemCF 给它打了高分。")
         return "".join(lines)
 
+    if algo == "als":
+        dims = evidence.get("top_latent_dims", [])
+        lines = [f"这部电影 #{movie} 的推荐依据来自 ALS 矩阵分解算法。"]
+        if dims:
+            top3 = "、".join(
+                f"latent 维度 {d['dim']}（贡献 {d['contribution']:+.4f}，用户分量 {d['user_component']:+.4f}，电影分量 {d['item_component']:+.4f}）"
+                for d in dims[:3]
+            )
+            lines.append(f"它在 latent 空间里的电影向量，与你的用户画像向量在内积空间上重合度最高的维度是：{top3}。")
+        return "".join(lines)
+
+    if algo == "popular":
+        rank = evidence.get("global_rank", "?")
+        total = evidence.get("total_popular", "?")
+        score = evidence.get("score", 0)
+        lines = [f"这部电影 #{movie} 是全局热门榜单的第 {rank}/{total} 名（热度分 {score:.2f}）。"]
+        lines.append("Popular 算法不做个性化，直接按全站 popularity 字段降序。")
+        return "".join(lines)
+
+    if algo == "cold_start":
+        # Cold Start 复用 Content 模板（结构相同）
+        genres = evidence.get("target_genres", [])
+        contrib = evidence.get("contributing_genres", [])
+        lines = [f"这部电影 #{movie} 的推荐依据来自 Cold Start 冷启动算法（与 Content 用相同特征）。"]
+        if contrib:
+            g_str = "、".join(f"{c['genre']}（权重 {c['profile_weight']:+.2f}）" for c in contrib)
+            lines.append(f"用户兴趣画像里，这些类型分量与它匹配：{g_str}。")
+        return "".join(lines)
+
     return f"算法 {algo} 的推荐解释暂未实现。"
 
 
@@ -290,8 +319,19 @@ def explain_recommendation(payload: ExplainRequest, request: Request):
         from recommender.student.itemcf_explain import explain as itemcf_explain
         from recommender.student.common import catalog_ids
         evidence = itemcf_explain(manifest, payload.movie_id, rated, catalog_ids())
+    elif algo == Algorithm.als:
+        from recommender.student.als_explain import explain as als_explain
+        from recommender.student.common import catalog_ids
+        evidence = als_explain(manifest, payload.movie_id, rated, catalog_ids())
+    elif algo == Algorithm.popular:
+        from recommender.student.popular_explain import explain as popular_explain
+        evidence = popular_explain(manifest, payload.movie_id, rated, tuple())
+    elif algo == Algorithm.cold_start:
+        from recommender.student.cold_start_explain import explain as cs_explain
+        from recommender.student.common import catalog_ids
+        evidence = cs_explain(manifest, payload.movie_id, rated, catalog_ids())
     else:
-        evidence["reason"] = f"算法 {payload.algorithm} 的解释逻辑暂未实现（Content/ItemCF 可用）"
+        evidence["reason"] = f"算法 {payload.algorithm} 的解释逻辑暂未实现"
 
     # 生成解释
     settings = request.app.state.settings

@@ -12,12 +12,17 @@ from dataclasses import dataclass
 # 轮换序列：itemcf → content → als → popular → cold_start → itemcf …
 _ALGO_CYCLE = itertools.cycle(["itemcf", "content", "als", "popular", "cold_start"])
 
+# genre 关键词 → 同时用作过滤 q（命中后会真实查询 DB genres 字段）
+_GENRE_FILTERS = ["科幻", "喜剧", "动画", "恐怖", "动作", "爱情", "剧情", "冒险",
+                  "犯罪", "悬疑", "惊悚", "奇幻", "战争", "西部", "纪录片", "家庭",
+                  "music", "musical", "animation", "comedy", "scifi", "horror",
+                  "action", "romance", "drama", "adventure", "crime", "thriller",
+                  "fantasy", "war", "western", "documentary", "family"]
+
 # 意图 → 算法映射（用户说的不是算法名，而是"给我科幻的"→ 用 content 最合适）
 _GENRE_ALGO = {
     # genre hints → content（唯一用 genres 的算法）
-    "科幻": "content", "动画": "content", "喜剧": "content", "恐怖": "content",
-    "动作": "content", "爱情": "content", "剧情": "content", "冒险": "content",
-    "crime": "content", "scifi": "content", "animation": "content",
+    **{g: "content" for g in _GENRE_FILTERS},
     # 算法直称
     "itemcf": "itemcf", "协同": "itemcf", "协同过滤": "itemcf",
     "content": "content", "内容": "content",
@@ -50,14 +55,28 @@ def _first_number(text: str) -> str | None:
     return digits or None
 
 
-def _detect_algorithm(text: str, prefer_diversity: bool) -> str:
-    """从自然语言推断推荐算法；prefer_diversity=True 时轮换算法（响应「换些」）。"""
+def _detect_algorithm(text: str, prefer_diversity: bool) -> tuple[str, str | None]:
+    """从自然语言推断 (推荐算法, genre过滤词)。prefer_diversity=True 时轮换算法。"""
+    low = text.lower()
     for keyword, algo in _GENRE_ALGO.items():
-        if keyword.lower() in text:
-            return algo
+        if keyword.lower() in low:
+            # 命中 genre 关键词 → 同时用它做 q 过滤
+            q = keyword if keyword in _GENRE_FILTERS else None
+            return algo, q
     if prefer_diversity:
-        return next(_ALGO_CYCLE)
-    return next(_ALGO_CYCLE)  # 默认也轮换，避免每次都 itemcf
+        return next(_ALGO_CYCLE), None
+    return next(_ALGO_CYCLE), None  # 默认也轮换
+
+
+def _detect_title_keyword(text: str) -> str | None:
+    """从消息里提取可能的标题关键词（紧跟「电影 / 影片 / 片」后的非数字片段）。"""
+    import re
+    m = re.search(r"(?:电影|影片|片|推荐)\s*([\u4e00-\u9fa5A-Za-z·\-]{1,10})", text)
+    if m:
+        cand = m.group(1)
+        if cand and cand not in {"推荐", "一些", "几部", "部"}:
+            return cand
+    return None
 
 
 def _detect_limit(text: str) -> int | None:
@@ -92,11 +111,18 @@ def plan(message: str, algorithm: str | None = None, limit: int | None = None) -
     wants_recommend = (not calls) or any(word in low for word in ("推荐", "recommend", "感兴趣", "想看", "推荐一些", "给我"))
     if wants_recommend:
         prefer_diversity = any(word in low for word in CYCLE_WORDS)
-        picked_algo = algorithm or _detect_algorithm(text, prefer_diversity)
+        picked_algo, picked_q = (algorithm or None, None) if algorithm else _detect_algorithm(text, prefer_diversity)
         args: dict = {"algorithm": picked_algo}
         resolved_limit = limit or _detect_limit(text)
         if resolved_limit:
             args["limit"] = resolved_limit
+        # q 过滤：优先用 genre 关键词，否则尝试提取标题关键词
+        if picked_q:
+            args["q"] = picked_q
+        else:
+            title_q = _detect_title_keyword(text)
+            if title_q:
+                args["q"] = title_q
         calls.append(ToolCall("get_recommendations", args))
 
     return calls

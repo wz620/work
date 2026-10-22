@@ -21,11 +21,13 @@ MAX_ITEMS = 20
 TOOLS: list[dict] = [
     {"type": "function", "function": {
         "name": "get_recommendations",
-        "description": "按指定推荐算法为当前登录用户生成推荐电影清单。",
+        "description": "按指定推荐算法为当前登录用户生成推荐电影清单，可按关键词（类型或标题）过滤。",
         "parameters": {"type": "object", "properties": {
             "algorithm": {"type": "string", "enum": [a.value for a in Algorithm],
                           "description": "推荐算法名"},
-            "limit": {"type": "integer", "minimum": 1, "maximum": 50, "description": "返回条数"}},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 50, "description": "返回条数"},
+            "q": {"type": "string", "maxLength": 100,
+                  "description": "可选关键词：类型（科幻/喜剧/动画…）或标题，会从真实电影库过滤"}},
             "required": ["algorithm"], "additionalProperties": False}}},
     {"type": "function", "function": {
         "name": "get_movie",
@@ -78,9 +80,33 @@ def _check_arguments(name: str, arguments: dict) -> None:
 def _get_recommendations(arguments: dict, request, actor) -> dict:
     algorithm = _require_algorithm(arguments.get("algorithm"))
     limit = _limit(arguments.get("limit"))
-    result = invoke(algorithm, "app", actor.account_id, limit)
+    keyword = arguments.get("q")
+    if keyword is not None and (not isinstance(keyword, str) or not keyword.strip()):
+        raise APIError(422, "TOOL_ARGUMENT_INVALID", "q 必须是非空字符串")
+    # 先按算法出完整推荐
+    result = invoke(algorithm, "app", actor.account_id, limit * 5)
+    items = [{"movie_id": item.movie_id, "rank": item.rank, "score": item.score} for item in result.items]
+    # 如果带关键词，用真实 DB movies 表做 genres / 标题过滤
+    filtered_count = 0
+    if keyword:
+        escaped = keyword.strip().replace("!", "!!").replace("%", "!%").replace("_", "!_")
+        ids = [str(i["movie_id"]) for i in items]
+        if ids:
+            with request.app.state.db.connection() as conn:
+                rows = conn.execute(text(
+                    "SELECT movie_id, genres FROM movies WHERE movie_id = ANY(:ids) "
+                    "AND (LOWER(genres) LIKE LOWER(:term) ESCAPE '!' "
+                    "OR LOWER(movielens_title) LIKE LOWER(:term) ESCAPE '!' "
+                    "OR LOWER(COALESCE(title_zh,'')) LIKE LOWER(:term) ESCAPE '!')"),
+                    {"ids": ids, "term": "%" + escaped + "%"}).mappings().all()
+            matched = {str(r["movie_id"]) for r in rows}
+            filtered = [i for i in items if str(i["movie_id"]) in matched]
+            filtered_count = len(items) - len(filtered)
+            items = filtered
+    # 截断到 limit
+    items = items[:limit]
     return {"algorithm": result.algorithm.value, "model_version": result.model_version,
-            "items": [{"movie_id": item.movie_id, "rank": item.rank, "score": item.score} for item in result.items]}
+            "items": items, "q": keyword, "filtered_count": filtered_count}
 
 
 def _get_movie(arguments: dict, request, actor) -> dict:

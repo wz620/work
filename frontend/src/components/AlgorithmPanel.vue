@@ -43,7 +43,7 @@ function parseSubject(endpoint: string | null, authAccountId: string | null) {
 }
 
 /** 支持解释的算法（有真实依据可收集） */
-const EXPLAINABLE = new Set(['content', 'itemcf'])
+const EXPLAINABLE = new Set(['content', 'itemcf', 'als', 'popular', 'cold_start'])
 
 const props = withDefaults(defineProps<{
   endpoint: string | null
@@ -440,6 +440,43 @@ const reasons = computed(() => {
                     </ul>
                   </div>
                   <p class="muted small">算法最终得分：{{ explainState.evidence.score?.toFixed(4) }} · 共使用 {{ explainState.evidence.total_seeds_used }} 部种子电影</p>
+                </template>
+
+                <template v-else-if="currentAlgo === 'als'">
+                  <div v-if="explainState.evidence.top_latent_dims?.length" class="evidence-list">
+                    <div class="evidence-title">ALS latent 维度贡献（按 |user × item| 排序）：</div>
+                    <ul class="evidence-items">
+                      <li v-for="d in explainState.evidence.top_latent_dims" :key="d.dim">
+                        维度 #{{ d.dim }} · 用户分量 {{ d.user_component.toFixed(4) }} · 电影分量 {{ d.item_component.toFixed(4) }} · 贡献 {{ d.contribution.toFixed(4) }}
+                      </li>
+                    </ul>
+                  </div>
+                  <p class="muted small">算法最终得分：{{ explainState.evidence.score?.toFixed(4) }} · 模型 {{ explainState.evidence.model_version }}</p>
+                </template>
+
+                <template v-else-if="currentAlgo === 'popular'">
+                  <div class="evidence-list">
+                    <div class="evidence-title">全局热门榜单排名：</div>
+                    <p>🔥 第 <b>{{ explainState.evidence.global_rank }}</b> / {{ explainState.evidence.total_popular }} 名，热度分 <b>{{ explainState.evidence.score?.toFixed(2) }}</b></p>
+                    <p class="muted small">Popular 不做个性化，直接按全站 popularity 字段降序。</p>
+                  </div>
+                </template>
+
+                <template v-else-if="currentAlgo === 'cold_start'">
+                  <div v-if="explainState.evidence.contributing_genres?.length" class="evidence-list">
+                    <div class="evidence-title">参与打分的 genres 特征（Cold Start 与 Content 共享 item_features.json）：</div>
+                    <div class="evidence-tags">
+                      <span v-for="c in explainState.evidence.contributing_genres" :key="c.genre" class="evidence-tag" :class="{ pos: c.profile_weight > 0, neg: c.profile_weight < 0 }">
+                        {{ c.genre }} <small>{{ c.profile_weight > 0 ? '+' : '' }}{{ c.profile_weight.toFixed(2) }}</small>
+                      </span>
+                    </div>
+                  </div>
+                  <p v-if="explainState.evidence.note" class="muted small">ℹ️ {{ explainState.evidence.note }}</p>
+                  <p class="muted small">算法最终得分：{{ explainState.evidence.score?.toFixed(4) }}</p>
+                </template>
+
+                <template v-else>
+                  <p class="muted small">算法 {{ currentAlgo }} 的详细依据暂未在前端展示，但 explain endpoint 已返回完整 evidence JSON。</p>
                 </template>
               </section>
 
