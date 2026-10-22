@@ -9,12 +9,15 @@ import { useRemote } from '../composables/useRemote'
 import type { Movie, Page } from '../types'
 import MoviePoster from '../components/MoviePoster.vue'
 import StatePanel from '../components/StatePanel.vue'
+import { getLocalDetail } from '../composables/useLocalDetails'
 const route = useRoute(), router = useRouter(), auth = useAuth()
 const { data: movie, error, loading, load } = useRemote<Movie>()
 const score = ref<number | undefined>(), savedScore = ref<string | null>(null), favorited = ref(false)
 const activityLoading = ref(false), activityError = ref<unknown>(null), saving = ref(false)
 let activityRun = 0
 const id = computed(() => String(route.params.id))
+// 本地海报 / TMDB poster_path 兜底（movie.poster_path 在数据库里是空的）
+const local = computed(() => getLocalDetail(id.value))
 function fetchMovie() { return load(async () => (await http.get<Movie>(`/movies/${encodeURIComponent(id.value)}`)).data) }
 async function retryMovie() { await fetchMovie(); await fetchActivity() }
 function people(value: unknown[] | null | undefined) { if (!value?.length) return '暂未收录'; return value.map(p => typeof p === 'string' ? p : (p && typeof p === 'object' && 'name' in p ? String(p.name) : '')).filter(Boolean).join(' / ') || '暂未收录' }
@@ -55,7 +58,11 @@ watch(() => auth.account?.account_id, fetchActivity)
 </script>
 <template>
   <div class="page detail-page"><RouterLink to="/movies" class="back-link"><el-icon aria-hidden="true"><Back /></el-icon> 返回电影库</RouterLink>
-    <StatePanel :loading="loading" :error="error" @retry="retryMovie"><div v-if="movie" class="detail-layout"><aside><MoviePoster :path="movie.poster_path" :title="movie.movielens_title" /><p class="archive-id">MOVIELENS / #{{ movie.movie_id }}</p></aside><div class="detail-content"><p class="eyebrow">FILM DOSSIER</p><h1>{{ movie.title_zh || movie.movielens_title }}</h1><p v-if="movie.title_zh" class="original-title">{{ movie.movielens_title }}</p><div class="genre-tags"><el-tag v-for="g in movie.genres" :key="g" effect="plain">{{ g }}</el-tag></div><dl class="film-facts"><div><dt>上映年份</dt><dd>{{ movie.release_year || '暂未收录' }}</dd></div><div><dt>上映日期</dt><dd>{{ movie.release_date || '暂未收录' }}</dd></div><div><dt>片长</dt><dd>{{ movie.runtime_minutes ? `${movie.runtime_minutes} 分钟` : '暂未收录' }}</dd></div><div><dt>原始语言</dt><dd>{{ movie.original_language || '暂未收录' }}</dd></div><div class="wide"><dt>导演</dt><dd>{{ people(movie.directors) }}</dd></div><div class="wide"><dt>主要演员</dt><dd>{{ people(movie.cast_top10) }}</dd></div></dl><section class="synopsis"><h2>关于这部电影</h2><p>{{ movie.overview || '剧情简介暂未收录。你仍然可以为这部电影评分或加入收藏。' }}</p></section>
+    <StatePanel :loading="loading" :error="error" @retry="retryMovie"><div v-if="movie" class="detail-layout"><aside><MoviePoster
+          :path="local?.tmdb_poster_path || movie.poster_path"
+          :local-path="local?.poster_local || undefined"
+          :title="movie.movielens_title"
+        /><p class="archive-id">MOVIELENS / #{{ movie.movie_id }}</p></aside><div class="detail-content"><p class="eyebrow">FILM DOSSIER</p><h1>{{ movie.title_zh || movie.movielens_title }}</h1><p v-if="movie.title_zh" class="original-title">{{ movie.movielens_title }}</p><div class="genre-tags"><el-tag v-for="g in movie.genres" :key="g" effect="plain">{{ g }}</el-tag></div><dl class="film-facts"><div><dt>上映年份</dt><dd>{{ movie.release_year || '暂未收录' }}</dd></div><div><dt>上映日期</dt><dd>{{ movie.release_date || '暂未收录' }}</dd></div><div><dt>片长</dt><dd>{{ movie.runtime_minutes ? `${movie.runtime_minutes} 分钟` : '暂未收录' }}</dd></div><div><dt>原始语言</dt><dd>{{ movie.original_language || '暂未收录' }}</dd></div><div class="wide"><dt>导演</dt><dd>{{ people(movie.directors) }}</dd></div><div class="wide"><dt>主要演员</dt><dd>{{ people(movie.cast_top10) }}</dd></div></dl><section class="synopsis"><h2>关于这部电影</h2><p>{{ movie.overview || '剧情简介暂未收录。你仍然可以为这部电影评分或加入收藏。' }}</p></section>
       <section class="rating-panel" aria-label="我的电影记录"><div class="section-top"><h2>留下你的观影印记</h2><span class="status-pill">{{ auth.account ? auth.account.subject_key : '尚未登录' }}</span></div>
         <template v-if="auth.account"><StatePanel :loading="activityLoading" :error="activityError" @retry="fetchActivity"><form @submit.prevent="rate"><label for="rating-input">我的评分 <strong>{{ savedScore || '尚未评分' }}</strong></label><div class="rating-controls"><el-input-number id="rating-input" v-model="score" :min="0.5" :max="5" :step="0.5" :precision="1" step-strictly :disabled="saving" placeholder="请选择" /><el-button type="primary" native-type="submit" :disabled="score === undefined || saving" :loading="saving">{{ savedScore ? '修改评分' : '保存评分' }}</el-button><el-button :icon="Star" :disabled="saving" :aria-pressed="favorited" @click="toggleFavorite">{{ favorited ? '取消收藏' : '收藏电影' }}</el-button></div><p class="form-hint">0.5—5.0 分，半星步长。评分只属于当前注册账号。</p></form></StatePanel></template>
         <div v-else class="inline-empty"><p>登录后记录评分，收藏想看的电影。</p><el-button type="primary" @click="router.push({path:'/login',query:{redirect:route.fullPath}})">登录后记录</el-button></div>
