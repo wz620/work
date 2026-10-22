@@ -27,6 +27,8 @@ interface ExplainState {
   explanation: string
   explanation_mode?: string
   error: string | null
+  /** showMode: 'evidence'=只看依据（隐藏AI解释区）  'full'=AI解释+依据都显示 */
+  showMode: 'evidence' | 'full'
 }
 const explainState = ref<ExplainState | null>(null)
 
@@ -159,17 +161,17 @@ watch(() => props.endpoint, () => fetchMetrics(props.endpoint), { immediate: tru
 /** ====== 推荐解释 ====== */
 const auth = useAuth()
 
-async function fetchExplain(movieId: string, movieTitle: string) {
+async function fetchExplain(movieId: string, movieTitle: string, showMode: 'evidence' | 'full') {
   const subject = parseSubject(props.endpoint, auth.account?.account_id ? String(auth.account.account_id) : null)
   if (!subject) return
-  explainState.value = { movieId, movieTitle, loading: true, evidence: null, explanation: '', error: null }
+  explainState.value = { movieId, movieTitle, loading: true, evidence: null, explanation: '', error: null, showMode }
   try {
     const { data } = await http.post('/assistant/explain-recommendation', {
       algorithm: subject.algorithm, movie_id: movieId, source: subject.source, subject_id: subject.subjectId, limit: 10,
     })
-    explainState.value = { movieId, movieTitle, loading: false, evidence: data.evidence, explanation: data.explanation || '(无解释)', explanation_mode: data.explanation_mode, error: null }
+    explainState.value = { movieId, movieTitle, loading: false, evidence: data.evidence, explanation: data.explanation || '(无解释)', explanation_mode: data.explanation_mode, error: null, showMode }
   } catch (e: any) {
-    explainState.value = { movieId, movieTitle, loading: false, evidence: null, explanation: '', error: e?.message || '请求失败' }
+    explainState.value = { movieId, movieTitle, loading: false, evidence: null, explanation: '', error: e?.message || '请求失败', showMode }
   }
 }
 
@@ -338,10 +340,10 @@ const reasons = computed(() => {
             </div>
             <!-- 解释按钮（只在 Content/ItemCF 可用） -->
             <div v-if="canExplain" class="explain-row">
-              <button class="explain-btn" type="button" @click="fetchExplain(item.movie_id, movie?.movielens_title || `电影#${item.movie_id}`)">
+              <button class="explain-btn" type="button" @click="fetchExplain(item.movie_id, movie?.movielens_title || `电影#${item.movie_id}`, 'evidence')">
                 <el-icon :size="14"><Document /></el-icon> 查看依据
               </button>
-              <button class="explain-btn explain-btn-primary" type="button" @click="fetchExplain(item.movie_id, movie?.movielens_title || `电影#${item.movie_id}`)">
+              <button class="explain-btn explain-btn-primary" type="button" @click="fetchExplain(item.movie_id, movie?.movielens_title || `电影#${item.movie_id}`, 'full')">
                 <el-icon :size="14"><ChatDotRound /></el-icon> AI解释
               </button>
             </div>
@@ -392,14 +394,14 @@ const reasons = computed(() => {
 
             <!-- 内容 -->
             <div v-else-if="explainState.evidence" class="explain-body">
-              <!-- AI 解释（最上面，最重要） -->
-              <section class="explain-section explain-ai">
+              <!-- AI 解释（只在 full 模式显示） -->
+              <section v-if="explainState.showMode === 'full'" class="explain-section explain-ai">
                 <h4><el-icon><ChatDotRound /></el-icon> AI 推荐理由</h4>
                 <p class="explain-text">{{ explainState.explanation }}</p>
                 <p class="muted small">mode: {{ explainState.explanation_mode }}</p>
               </section>
 
-              <!-- 真实依据 -->
+              <!-- 真实依据（两种模式都显示） -->
               <section class="explain-section">
                 <h4><el-icon><Document /></el-icon> 真实推荐依据</h4>
                 <template v-if="currentAlgo === 'content'">
