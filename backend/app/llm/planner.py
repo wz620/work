@@ -98,9 +98,9 @@ def plan(message: str, algorithm: str | None = None, limit: int | None = None) -
     if any(word in low for word in HISTORY_WORDS):
         calls.append(ToolCall("get_user_history", {}))
 
-    # 2. 查询单部电影详情
+    # 2. 查询单部电影详情（必须有明确的「看/查/是什么/介绍」意图，不能只是推荐数字）
     movie_id = _first_number(text)
-    if movie_id and any(word in low for word in MOVIE_WORDS):
+    if movie_id and any(word in low for word in ("是什么", "详情", "介绍", "叫什么", "哪部电影是", "这部电影")):
         calls.append(ToolCall("get_movie", {"movie_id": movie_id}))
 
     # 3. 查询已落库推荐结果

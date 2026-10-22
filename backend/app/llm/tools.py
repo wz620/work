@@ -83,34 +83,44 @@ def _get_recommendations(arguments: dict, request, actor) -> dict:
     keyword = arguments.get("q")
     if keyword is not None and (not isinstance(keyword, str) or not keyword.strip()):
         raise APIError(422, "TOOL_ARGUMENT_INVALID", "q 必须是非空字符串")
-    # 先按算法出完整推荐
-    result = invoke(algorithm, "app", actor.account_id, limit * 5)
-    items = [{"movie_id": item.movie_id, "rank": item.rank, "score": item.score} for item in result.items]
-    # 如果带关键词，用真实 DB movies 表做 genres / 标题过滤
-    filtered_count = 0
+
+    # ============ 有关键词 q → 直接查真实 DB（genre 过滤 or 标题搜索） ============
     if keyword:
         escaped = keyword.strip().replace("!", "!!").replace("%", "!%").replace("_", "!_")
-        ids = [str(i["movie_id"]) for i in items]
-        if ids:
-            placeholders = ",".join([":id" + str(idx) for idx in range(len(ids))])
-            params = {"term": "%" + escaped + "%"}
-            for idx, mid in enumerate(ids):
-                params["id" + str(idx)] = mid
-            with request.app.state.db.connection() as conn:
-                rows = conn.execute(text(
-                    f"SELECT movie_id, genres FROM movies WHERE movie_id IN ({placeholders}) "
-                    "AND (LOWER(genres) LIKE LOWER(:term) ESCAPE '!' "
-                    "OR LOWER(movielens_title) LIKE LOWER(:term) ESCAPE '!' "
-                    "OR LOWER(COALESCE(title_zh,'')) LIKE LOWER(:term) ESCAPE '!')"),
-                    params).mappings().all()
-            matched = {str(r["movie_id"]) for r in rows}
-            filtered = [i for i in items if str(i["movie_id"]) in matched]
-            filtered_count = len(items) - len(filtered)
-            items = filtered
-    # 截断到 limit
-    items = items[:limit]
-    return {"algorithm": result.algorithm.value, "model_version": result.model_version,
-            "items": items, "q": keyword, "filtered_count": filtered_count}
+        with request.app.state.db.connection() as conn:
+            rows = conn.execute(text(
+                "SELECT movie_id, movielens_title, title_zh, genres, popularity "
+                "FROM movies "
+                "WHERE LOWER(genres) LIKE LOWER(:term) ESCAPE '!' "
+                "   OR LOWER(movielens_title) LIKE LOWER(:term) ESCAPE '!' "
+                "   OR LOWER(COALESCE(title_zh,'')) LIKE LOWER(:term) ESCAPE '!' "
+                "ORDER BY COALESCE(popularity, 0) DESC LIMIT :limit"),
+                {"term": "%" + escaped + "%", "limit": limit}).mappings().all()
+        items = []
+        for rank, row in enumerate(rows, 1):
+            items.append({
+                "movie_id": str(row["movie_id"]),
+                "rank": rank,
+                "score": float(row.get("popularity") or 0),
+                "title_zh": row.get("title_zh") or row["movielens_title"],
+                "genres": row.get("genres"),
+            })
+        return {
+            "algorithm": "keyword_search",  # 不走个性化算法
+            "model_version": "db-direct",
+            "items": items,
+            "q": keyword,
+            "note": f"按关键词「{keyword}」从真实电影库 genres/标题匹配，按 popularity 降序，共 {len(items)} 条",
+        }
+
+    # ============ 无关键词 → 走真实个性化算法 ============
+    result = invoke(algorithm, "app", actor.account_id, limit)
+    return {
+        "algorithm": result.algorithm.value,
+        "model_version": result.model_version,
+        "items": [{"movie_id": item.movie_id, "rank": item.rank, "score": item.score} for item in result.items],
+        "q": None,
+    }
 
 
 def _get_movie(arguments: dict, request, actor) -> dict:
