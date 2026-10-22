@@ -38,6 +38,56 @@ async function fetchFusion() {
 }
 watch(() => fusionEndpoint.value, fetchFusion, { immediate: true })
 
+/** S2：自然语言推荐交互（assistant/chat） */
+interface ChatMessage { role: 'user' | 'assistant'; text: string; toolCalls?: { name: string; status: string }[]; mode?: string }
+const chatInput = ref('')
+const chatHistory = ref<ChatMessage[]>([])
+const chatLoading = ref(false)
+const chatEnabled = computed(() => source.value === 'app' && !!auth.account)
+
+async function sendChat() {
+  const text = chatInput.value.trim()
+  if (!text || chatLoading.value) return
+  chatHistory.value.push({ role: 'user', text })
+  chatInput.value = ''; chatLoading.value = true
+  try {
+    const res = await http.post<{ mode: string; answer: string; tool_calls: { name: string; status: string }[] }>(
+      '/assistant/chat', { message: text })
+    chatHistory.value.push({
+      role: 'assistant', text: res.data.answer, mode: res.data.mode,
+      toolCalls: res.data.tool_calls.map(t => ({ name: t.name, status: t.status }))
+    })
+  } catch (e) {
+    chatHistory.value.push({ role: 'assistant', text: `❌ 调用失败：${(e as ApiError).message || e}` })
+  } finally { chatLoading.value = false }
+}
+
+/** S3：Kafka/InProcBus 行为事件 → 实时推荐 */
+interface RealtimeItem { movie_id: string; rank: number; score: number }
+interface RealtimeResult { subject_key: string; algorithm: string; degraded: boolean; window_size: number; items: RealtimeItem[]; batch_token: string; generated_at: string }
+const realtimeResult = ref<RealtimeResult | null>(null)
+const realtimeLoading = ref(false)
+const realtimeError = ref<unknown>(null)
+const realtimeEnabled = computed(() => source.value === 'app' && !!auth.account)
+
+const BEHAVIOR_SEEDS = [
+  { event_type: 'rating', movie_id: '318', rating: 5.0, reason: '你刚给《肖申克的救赎》打了 5 分' },
+  { event_type: 'rating', movie_id: '2571', rating: 4.5, reason: '你给《黑客帝国》打了 4.5 分' },
+  { event_type: 'rating', movie_id: '50', rating: 4.0, reason: '你给《搏击俱乐部》打了 4 分' },
+  { event_type: 'favorite', movie_id: '296', reason: '你收藏了《宝贝儿》' },
+]
+async function triggerRealtime(event: typeof BEHAVIOR_SEEDS[number]) {
+  realtimeLoading.value = true; realtimeError.value = null; realtimeResult.value = null
+  try {
+    const body: Record<string, unknown> = { event_type: event.event_type, movie_id: event.movie_id }
+    if (event.rating) body.rating = event.rating
+    const res = await http.post<{ recommendation: RealtimeResult }>(
+      '/demo/realtime/events', body)
+    realtimeResult.value = res.data.recommendation
+  } catch (e) { realtimeError.value = e }
+  finally { realtimeLoading.value = false }
+}
+
 const algorithmGroups = computed(() => [
   { label: '核心算法 · 学生实现', items: available.value.filter(a => ['content', 'itemcf', 'als'].includes(a.algorithm)) },
   { label: '配套策略 · 热门与冷启动', items: available.value.filter(a => ['popular', 'cold_start'].includes(a.algorithm)) },
@@ -209,6 +259,74 @@ void fetchUsers(); void fetchRegistry(); void fetchEvaluation(); void fetchRatin
           </StatePanel>
         </section>
 
+        <!-- S2: 自然语言推荐交互 -->
+        <section v-if="chatEnabled" class="chat-panel">
+          <div class="section-top">
+            <h2>LLM 推荐助手</h2>
+            <span class="small-label"><el-tag size="small" effect="plain">S2</el-tag> 自然语言 → 工具调用 → 真实推荐</span>
+          </div>
+          <div class="chat-history">
+            <div v-if="chatHistory.length === 0" class="chat-empty">
+              <p>试试：「推荐 5 部科幻电影」、「查一下电影 #1 Toy Story」、「我最近喜欢什么类型？」</p>
+            </div>
+            <div v-for="(msg, i) in chatHistory" :key="i" class="chat-msg" :class="msg.role">
+              <div class="chat-bubble">
+                <span v-if="msg.role === 'assistant' && msg.mode" class="chat-mode" :title="msg.mode">
+                  {{ msg.mode === 'local_rules' ? '🔧 本地规则' : '🤖 LLM' }}
+                </span>
+                {{ msg.text }}
+                <div v-if="msg.toolCalls?.length" class="chat-tools">
+                  <el-tag v-for="tc in msg.toolCalls" :key="tc.name" size="small"
+                    :type="tc.status === 'ok' ? 'success' : 'danger'" effect="plain">
+                    {{ tc.name }} · {{ tc.status }}
+                  </el-tag>
+                </div>
+              </div>
+            </div>
+            <div v-if="chatLoading" class="chat-msg assistant">
+              <div class="chat-bubble chat-loading">思考中…</div>
+            </div>
+          </div>
+          <div class="chat-input-row">
+            <el-input v-model="chatInput" placeholder="用自然语言问助手…（回车发送）"
+              @keyup.enter="sendChat" :disabled="chatLoading" size="large" />
+            <el-button type="primary" :loading="chatLoading" @click="sendChat" size="large">发送</el-button>
+          </div>
+        </section>
+
+        <!-- S3: 实时行为推荐（Kafka / InProcBus） -->
+        <section v-if="realtimeEnabled" class="realtime-panel">
+          <div class="section-top">
+            <h2>实时行为推荐</h2>
+            <span class="small-label"><el-tag size="small" effect="plain">S3</el-tag>
+              {{ realtimeResult?.degraded ? '⚡ InProcBus 兜底' : '📨 Kafka' }}
+              · 最近事件窗口 {{ realtimeResult?.window_size ?? 20 }}</span>
+          </div>
+          <div class="realtime-seeds">
+            <el-button v-for="b in BEHAVIOR_SEEDS" :key="b.event_type + b.movie_id" size="small"
+              :loading="realtimeLoading" @click="triggerRealtime(b)" plain>
+              {{ b.reason }}
+            </el-button>
+          </div>
+          <StatePanel :loading="realtimeLoading" :error="realtimeError"
+            empty-title="点击上方按钮触发行为事件">
+            <div v-if="realtimeResult" class="realtime-result">
+              <div class="realtime-meta">
+                <el-tag size="small" effect="plain">{{ realtimeResult.algorithm }}</el-tag>
+                <small>batch {{ realtimeResult.batch_token }}</small>
+                <small>{{ realtimeResult.generated_at }}</small>
+              </div>
+              <div class="realtime-items">
+                <div v-for="item in realtimeResult.items.slice(0, 10)" :key="item.movie_id" class="realtime-card">
+                  <span class="rt-rank">#{{ item.rank }}</span>
+                  <span class="rt-mid">{{ item.movie_id }}</span>
+                  <span class="rt-score">{{ item.score.toFixed(3) }}</span>
+                </div>
+              </div>
+            </div>
+          </StatePanel>
+        </section>
+
         <section v-if="source === 'ml'" class="history-panel">
           <div class="section-top"><h2>历史评分</h2><span class="status-pill">{{ subject || '未选择用户' }} · 只读</span></div>
           <StatePanel :loading="ratings.loading.value" :error="ratings.error.value"
@@ -307,4 +425,27 @@ void fetchUsers(); void fetchRegistry(); void fetchEvaluation(); void fetchRatin
 .fusion-sources { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
 .fusion-source { font-size: 10px; padding: 2px 6px; background: rgba(99,102,241,0.15); border-radius: 4px; color: #c7d2fe; }
 .fusion-source small { color: #a5b4fc; margin-left: 2px; }
+/* S2 Chat */
+.chat-panel { margin-top: 22px; padding: 18px 22px; background: linear-gradient(135deg, rgba(16,185,129,0.06), rgba(6,182,212,0.04)); border: 1px solid rgba(16,185,129,0.25); border-radius: 14px; }
+.chat-history { max-height: 280px; overflow-y: auto; margin: 12px 0; display: flex; flex-direction: column; gap: 10px; }
+.chat-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 20px; }
+.chat-msg { display: flex; }
+.chat-msg.user { justify-content: flex-end; }
+.chat-bubble { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.6; word-break: break-word; }
+.chat-msg.user .chat-bubble { background: rgba(99,102,241,0.25); color: #e0e7ff; border-bottom-right-radius: 4px; }
+.chat-msg.assistant .chat-bubble { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-bottom-left-radius: 4px; }
+.chat-mode { font-size: 11px; margin-right: 6px; opacity: 0.7; }
+.chat-tools { margin-top: 6px; display: flex; gap: 4px; flex-wrap: wrap; }
+.chat-loading { font-style: italic; color: var(--muted); }
+.chat-input-row { display: flex; gap: 8px; }
+/* S3 Realtime */
+.realtime-panel { margin-top: 22px; padding: 18px 22px; background: linear-gradient(135deg, rgba(245,158,11,0.06), rgba(239,68,68,0.04)); border: 1px solid rgba(245,158,11,0.3); border-radius: 14px; }
+.realtime-seeds { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+.realtime-result { margin-top: 10px; }
+.realtime-meta { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+.realtime-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.realtime-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px 10px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+.rt-rank { color: #fbbf24; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rt-mid { color: var(--muted); }
+.rt-score { color: #a5b4fc; font-variant-numeric: tabular-nums; font-size: 12px; }
 </style>
