@@ -89,19 +89,19 @@ def _get_recommendations(arguments: dict, request, actor) -> dict:
         escaped = keyword.strip().replace("!", "!!").replace("%", "!%").replace("_", "!_")
         with request.app.state.db.connection() as conn:
             rows = conn.execute(text(
-                "SELECT movie_id, movielens_title, title_zh, genres, popularity "
+                "SELECT movie_id, movielens_title, title_zh, genres "
                 "FROM movies "
                 "WHERE LOWER(genres) LIKE LOWER(:term) ESCAPE '!' "
                 "   OR LOWER(movielens_title) LIKE LOWER(:term) ESCAPE '!' "
                 "   OR LOWER(COALESCE(title_zh,'')) LIKE LOWER(:term) ESCAPE '!' "
-                "ORDER BY COALESCE(popularity, 0) DESC LIMIT :limit"),
+                "ORDER BY movie_id DESC LIMIT :limit"),
                 {"term": "%" + escaped + "%", "limit": limit}).mappings().all()
         items = []
         for rank, row in enumerate(rows, 1):
             items.append({
                 "movie_id": str(row["movie_id"]),
                 "rank": rank,
-                "score": float(row.get("popularity") or 0),
+                "score": float(row["movie_id"]),  # 无 popularity 列，用 movie_id 作为确定性排序依据
                 "title_zh": row.get("title_zh") or row["movielens_title"],
                 "genres": row.get("genres"),
             })
@@ -110,7 +110,7 @@ def _get_recommendations(arguments: dict, request, actor) -> dict:
             "model_version": "db-direct",
             "items": items,
             "q": keyword,
-            "note": f"按关键词「{keyword}」从真实电影库 genres/标题匹配，按 popularity 降序，共 {len(items)} 条",
+            "note": f"按关键词「{keyword}」从真实电影库 genres/标题匹配，共 {len(items)} 条",
         }
 
     # ============ 无关键词 → 走真实个性化算法 ============
