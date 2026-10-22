@@ -12,12 +12,35 @@ from dataclasses import dataclass
 # 轮换序列：itemcf → content → als → popular → cold_start → itemcf …
 _ALGO_CYCLE = itertools.cycle(["itemcf", "content", "als", "popular", "cold_start"])
 
+# 中文 genre → 英文 genres（DB 里存的是英文 pipe 分隔，如 "Comedy|Romance"）
+# 一个中文词可能对应多个英文 genre（如 科幻 → Sci-Fi + Fantasy）
+_GENRE_CN_TO_EN: dict[str, list[str]] = {
+    "科幻":     ["Sci-Fi"],
+    "喜剧":     ["Comedy"],
+    "动画":     ["Animation"],
+    "恐怖":     ["Horror"],
+    "动作":     ["Action"],
+    "爱情":     ["Romance"],
+    "剧情":     ["Drama"],
+    "冒险":     ["Adventure"],
+    "犯罪":     ["Crime"],
+    "悬疑":     ["Mystery"],
+    "惊悚":     ["Thriller"],
+    "奇幻":     ["Fantasy"],
+    "战争":     ["War"],
+    "西部":     ["Western"],
+    "纪录片":   ["Documentary"],
+    "家庭":     ["Children"],
+    "音乐":     ["Musical"],
+    "综艺":     ["Musical"],
+}
+
 # genre 关键词 → 同时用作过滤 q（命中后会真实查询 DB genres 字段）
-_GENRE_FILTERS = ["科幻", "喜剧", "动画", "恐怖", "动作", "爱情", "剧情", "冒险",
-                  "犯罪", "悬疑", "惊悚", "奇幻", "战争", "西部", "纪录片", "家庭",
-                  "music", "musical", "animation", "comedy", "scifi", "horror",
-                  "action", "romance", "drama", "adventure", "crime", "thriller",
-                  "fantasy", "war", "western", "documentary", "family"]
+_GENRE_FILTERS = list(_GENRE_CN_TO_EN.keys()) + [
+    "music", "musical", "animation", "comedy", "scifi", "horror",
+    "action", "romance", "drama", "adventure", "crime", "thriller",
+    "fantasy", "war", "western", "documentary", "family",
+]
 
 # 意图 → 算法映射（用户说的不是算法名，而是"给我科幻的"→ 用 content 最合适）
 _GENRE_ALGO = {
@@ -60,8 +83,14 @@ def _detect_algorithm(text: str, prefer_diversity: bool) -> tuple[str, str | Non
     low = text.lower()
     for keyword, algo in _GENRE_ALGO.items():
         if keyword.lower() in low:
-            # 命中 genre 关键词 → 同时用它做 q 过滤
-            q = keyword if keyword in _GENRE_FILTERS else None
+            # 命中 genre 关键词 → 翻译 DB 真实值（中文→英文 genres）
+            if keyword in _GENRE_CN_TO_EN:
+                # 中文：返回第一个英文 genre（SQL LIKE 单个值）
+                q = _GENRE_CN_TO_EN[keyword][0]
+            elif keyword in _GENRE_FILTERS:
+                q = keyword  # 英文关键词直接用
+            else:
+                q = None
             return algo, q
     if prefer_diversity:
         return next(_ALGO_CYCLE), None
