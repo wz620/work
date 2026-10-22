@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, ref, watch } from 'vue'
-import { Connection, InfoFilled, Odometer } from '@element-plus/icons-vue'
+import { Connection, InfoFilled, Odometer, ChatDotRound, Document } from '@element-plus/icons-vue'
 import http, { ApiError } from '../api'
 import StatePanel from './StatePanel.vue'
 import MovieCard from './MovieCard.vue'
 import type { AlgorithmResult, Movie } from '../types'
+import { useAuth } from '../stores/auth'
 
 /** 离线评价指标（Precision@10 / Recall@10） */
 interface Metrics {
@@ -16,6 +17,31 @@ interface Metrics {
 }
 const metrics = ref<Metrics | null>(null)
 const metricsLoading = ref(false)
+
+/** explain 弹窗状态 */
+interface ExplainState {
+  movieId: string
+  movieTitle: string
+  loading: boolean
+  evidence: any | null
+  explanation: string
+  explanation_mode?: string
+  error: string | null
+}
+const explainState = ref<ExplainState | null>(null)
+
+/** 从 endpoint 解析 { source, subjectId, algorithm } */
+function parseSubject(endpoint: string | null, authAccountId: string | null) {
+  if (!endpoint) return null
+  let m = endpoint.match(/\/demo\/history-users\/(\d+)\/recommendations\/([a-z_]+)/)
+  if (m) return { source: 'ml', subjectId: m[1], algorithm: m[2] }
+  m = endpoint.match(/\/me\/recommendations\/([a-z_]+)/)
+  if (m && authAccountId) return { source: 'app', subjectId: authAccountId, algorithm: m[1] }
+  return null
+}
+
+/** 支持解释的算法（有真实依据可收集） */
+const EXPLAINABLE = new Set(['content', 'itemcf'])
 
 const props = withDefaults(defineProps<{
   endpoint: string | null
@@ -129,6 +155,26 @@ async function fetchMetrics(endpoint: string | null) {
   finally { metricsLoading.value = false }
 }
 watch(() => props.endpoint, () => fetchMetrics(props.endpoint), { immediate: true })
+
+/** ====== 推荐解释 ====== */
+const auth = useAuth()
+
+async function fetchExplain(movieId: string, movieTitle: string) {
+  const subject = parseSubject(props.endpoint, auth.account?.account_id ? String(auth.account.account_id) : null)
+  if (!subject) return
+  explainState.value = { movieId, movieTitle, loading: true, evidence: null, explanation: '', error: null }
+  try {
+    const { data } = await http.post('/assistant/explain-recommendation', {
+      algorithm: subject.algorithm, movie_id: movieId, source: subject.source, subject_id: subject.subjectId, limit: 10,
+    })
+    explainState.value = { movieId, movieTitle, loading: false, evidence: data.evidence, explanation: data.explanation || '(无解释)', explanation_mode: data.explanation_mode, error: null }
+  } catch (e: any) {
+    explainState.value = { movieId, movieTitle, loading: false, evidence: null, explanation: '', error: e?.message || '请求失败' }
+  }
+}
+
+const currentAlgo = computed(() => parseAlgorithm(props.endpoint))
+const canExplain = computed(() => currentAlgo.value && EXPLAINABLE.has(currentAlgo.value))
 
 /** 从 endpoint 推断历史用户 UID；/demo/history-users/{uid}/... → uid，/me/... → null（注册账号） */
 function parseHistoryUid(endpoint: string | null): string | null {
@@ -290,8 +336,17 @@ const reasons = computed(() => {
             <div v-if="item.score !== null" class="score-badge" :title="`算法分数 ${item.score}`">
               {{ (item.score * 100).toFixed(0) }}
             </div>
+            <!-- 解释按钮（只在 Content/ItemCF 可用） -->
+            <div v-if="canExplain" class="explain-row">
+              <button class="explain-btn" type="button" @click="fetchExplain(item.movie_id, movie?.movielens_title || `电影#${item.movie_id}`)">
+                <el-icon :size="14"><Document /></el-icon> 查看依据
+              </button>
+              <button class="explain-btn explain-btn-primary" type="button" @click="fetchExplain(item.movie_id, movie?.movielens_title || `电影#${item.movie_id}`)">
+                <el-icon :size="14"><ChatDotRound /></el-icon> AI解释
+              </button>
+            </div>
             <!-- 推荐原因 -->
-            <p class="reason-text" :title="reasons.get(item.movie_id)">
+            <p v-if="!canExplain" class="reason-text" :title="reasons.get(item.movie_id)">
               <el-icon aria-hidden="true"><InfoFilled /></el-icon>
               {{ reasons.get(item.movie_id) }}
             </p>
@@ -311,6 +366,87 @@ const reasons = computed(() => {
         <footer v-if="detailsLoading" class="muted small">正在加载电影详情…</footer>
       </div>
     </StatePanel>
+
+    <!-- Explain 弹窗 -->
+    <Teleport to="body">
+      <transition name="fade">
+        <div v-if="explainState" class="explain-overlay" @click.self="explainState = null">
+          <div class="explain-modal" role="dialog" aria-modal="true">
+            <header class="explain-header">
+              <div>
+                <h3>#{{ explainState.movieId }} · {{ explainState.movieTitle }}</h3>
+                <p class="explain-sub">算法：{{ currentAlgo }} · 用户 {{ parseSubject(props.endpoint, auth.account?.account_id ? String(auth.account.account_id) : null)?.source || '?' }}:{{ parseSubject(props.endpoint, auth.account?.account_id ? String(auth.account.account_id) : null)?.subjectId || '?' }}</p>
+              </div>
+              <button class="explain-close" type="button" @click="explainState = null" aria-label="关闭">✕</button>
+            </header>
+
+            <!-- 加载中 -->
+            <div v-if="explainState.loading" class="explain-body">
+              <p class="muted">正在分析推荐依据…</p>
+            </div>
+
+            <!-- 错误 -->
+            <div v-else-if="explainState.error" class="explain-body">
+              <p class="muted explain-error">⚠️ {{ explainState.error }}</p>
+            </div>
+
+            <!-- 内容 -->
+            <div v-else-if="explainState.evidence" class="explain-body">
+              <!-- AI 解释（最上面，最重要） -->
+              <section class="explain-section explain-ai">
+                <h4><el-icon><ChatDotRound /></el-icon> AI 推荐理由</h4>
+                <p class="explain-text">{{ explainState.explanation }}</p>
+                <p class="muted small">mode: {{ explainState.explanation_mode }}</p>
+              </section>
+
+              <!-- 真实依据 -->
+              <section class="explain-section">
+                <h4><el-icon><Document /></el-icon> 真实推荐依据</h4>
+                <template v-if="currentAlgo === 'content'">
+                  <div v-if="explainState.evidence.contributing_genres?.length" class="evidence-list">
+                    <div class="evidence-title">参与打分的 genres 特征（画像权重 × 候选电影存在）：</div>
+                    <div class="evidence-tags">
+                      <span v-for="c in explainState.evidence.contributing_genres" :key="c.genre" class="evidence-tag" :class="{ pos: c.profile_weight > 0, neg: c.profile_weight < 0 }">
+                        {{ c.genre }} <small>{{ c.profile_weight > 0 ? '+' : '' }}{{ c.profile_weight.toFixed(2) }}</small>
+                      </span>
+                    </div>
+                  </div>
+                  <div v-if="explainState.evidence.target_genres?.length" class="evidence-list">
+                    <div class="evidence-title">候选电影 genres：</div>
+                    <div class="evidence-tags">
+                      <span v-for="g in explainState.evidence.target_genres" :key="g" class="evidence-tag neutral">{{ g }}</span>
+                    </div>
+                  </div>
+                  <div v-if="explainState.evidence.user_history_genres_sample?.length" class="evidence-list">
+                    <div class="evidence-title">用户历史高分电影样本：</div>
+                    <ul class="evidence-items">
+                      <li v-for="u in explainState.evidence.user_history_genres_sample" :key="u.movie_id">
+                        #{{ u.movie_id }} · {{ u.rating }}分 · {{ u.genres?.join(' / ') }}
+                      </li>
+                    </ul>
+                  </div>
+                  <p class="muted small">算法最终得分：{{ explainState.evidence.score?.toFixed(4) }}</p>
+                </template>
+
+                <template v-else-if="currentAlgo === 'itemcf'">
+                  <div v-if="explainState.evidence.top_contributions?.length" class="evidence-list">
+                    <div class="evidence-title">协同配对（种子电影 → 相似度 → 贡献 = sim × rating）：</div>
+                    <ul class="evidence-items">
+                      <li v-for="(c, i) in explainState.evidence.top_contributions" :key="i">
+                        #{{ c.seed_movie_id }}（评分 {{ c.rating }}） · sim={{ c.similarity.toFixed(3) }} · 贡献 {{ c.contribution.toFixed(4) }}
+                      </li>
+                    </ul>
+                  </div>
+                  <p class="muted small">算法最终得分：{{ explainState.evidence.score?.toFixed(4) }} · 共使用 {{ explainState.evidence.total_seeds_used }} 部种子电影</p>
+                </template>
+              </section>
+
+              <p v-if="!explainState.evidence.found" class="muted explain-error">⚠️ {{ explainState.evidence.reason || '证据不足' }}</p>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
   </section>
 </template>
 
@@ -371,4 +507,76 @@ const reasons = computed(() => {
   color: var(--accent, #3b82f6);
   font-size: 13px;
 }
+/* ====== Explain 按钮 + 弹窗 ====== */
+.explain-row {
+  display: flex; gap: 6px; margin-top: 6px;
+}
+.explain-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 500;
+  padding: 4px 8px; border-radius: 4px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+  color: #c5d1e2; cursor: pointer; transition: all .15s;
+}
+.explain-btn:hover { background: rgba(255,255,255,0.12); border-color: var(--accent); color: #fff; }
+.explain-btn-primary {
+  background: linear-gradient(135deg, rgba(99,102,241,0.35), rgba(59,130,246,0.35));
+  border-color: rgba(99,102,241,0.6);
+  color: #e0e7ff;
+}
+.explain-btn-primary:hover { background: linear-gradient(135deg, rgba(99,102,241,0.55), rgba(59,130,246,0.55)); }
+
+.explain-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.explain-modal {
+  background: #1e293b; color: #e2e8f0;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  max-width: 640px; width: 100%; max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.explain-header {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  padding: 18px 22px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.explain-header h3 { margin: 0; font-size: 17px; color: #f1f5f9; }
+.explain-sub { margin: 4px 0 0; font-size: 12px; color: #94a3b8; }
+.explain-close {
+  background: transparent; border: none; color: #94a3b8;
+  font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 4px;
+}
+.explain-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.explain-body { padding: 18px 22px; }
+.explain-section { margin-bottom: 18px; }
+.explain-section h4 {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 0 10px; font-size: 13px; font-weight: 600;
+  color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em;
+}
+.explain-section h4 .el-icon { color: var(--accent); }
+.explain-ai {
+  background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(59,130,246,0.08));
+  border: 1px solid rgba(99,102,241,0.25);
+  border-radius: 8px; padding: 14px 16px;
+}
+.explain-text { font-size: 14px; line-height: 1.7; color: #e2e8f0; margin: 0; }
+.explain-error { color: #f87171; }
+.evidence-list { margin-bottom: 12px; }
+.evidence-title { font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
+.evidence-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.evidence-tag {
+  padding: 3px 10px; border-radius: 12px; font-size: 12px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+}
+.evidence-tag.pos { background: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.3); color: #86efac; }
+.evidence-tag.neg { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); color: #fca5a5; }
+.evidence-tag.neutral { background: rgba(148,163,184,0.15); border-color: rgba(148,163,184,0.25); color: #cbd5e1; }
+.evidence-tag small { opacity: 0.8; margin-left: 2px; }
+.evidence-items { padding-left: 18px; margin: 0; font-size: 13px; line-height: 1.8; color: #cbd5e1; }
+.fade-enter-active, .fade-leave-active { transition: opacity .2s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>

@@ -179,3 +179,144 @@ def assistant_chat(payload: AssistantRequest, request: Request, actor: ActorDepe
     return AssistantResponse(mode=mode, tool_calls=records,
                              answer=llm_answer or _summarize(records),
                              request_id=request.state.request_id)
+
+
+# ================ 推荐解释（扩展任务：实验 4+5） =================
+
+def _local_explain(evidence: dict) -> str:
+    """LLM 不可用时的确定性兜底解释：把 evidence 翻译成普通话。"""
+    algo = evidence.get("algorithm", "?")
+    movie = evidence.get("movie_id", "?")
+
+    if not evidence.get("found"):
+        return f"暂无法为电影 #{movie} 生成推荐依据（{evidence.get('reason', '证据不足')}）。"
+
+    if algo == "content":
+        genres = evidence.get("target_genres", [])
+        contrib = evidence.get("contributing_genres", [])
+        user_high = evidence.get("user_history_genres_sample", [])
+        lines = [f"这部电影 #{movie} 的推荐依据来自 Content 内容匹配算法。"]
+        if contrib:
+            g_str = "、".join(f"{c['genre']}（权重 {c['profile_weight']:+.2f}）" for c in contrib)
+            lines.append(f"你历史评分构建的兴趣画像里，这些类型分量与它匹配：{g_str}。")
+        if genres:
+            lines.append(f"它本身属于：{'、'.join(genres)}。")
+        if user_high:
+            sample = "、".join(f"#{u['movie_id']}（{u['rating']}分，{'/'.join(u['genres'])}）" for u in user_high[:3])
+            lines.append(f"这与你之前高分评价过的 {sample} 等电影类型偏好一致。")
+        return "".join(lines)
+
+    if algo == "itemcf":
+        contrib = evidence.get("top_contributions", [])
+        lines = [f"这部电影 #{movie} 的推荐依据来自 ItemCF 物品协同过滤算法。"]
+        if contrib:
+            pairs = "、".join(
+                f"#{c['seed_movie_id']}（评分 {c['rating']}，协同相似度 {c['similarity']:.3f}，贡献 {c['contribution']:+.3f}）"
+                for c in contrib[:3]
+            )
+            lines.append(f"它与你评分过的 {pairs} 存在较高的协同相似度，这些共同评分模式让 ItemCF 给它打了高分。")
+        return "".join(lines)
+
+    return f"算法 {algo} 的推荐解释暂未实现。"
+
+
+def _llm_explain(client: ChatClient, evidence: dict, movie_title: str) -> str:
+    """调用 ChatClient 生成基于证据的中文解释。不允许编造任何数据。"""
+    system = (
+        "你是电影推荐解释助手。只能根据用户提供的 JSON 证据，用普通话解释为什么这部电影被推荐。"
+        "绝对不能编造任何证据里没有的电影ID、评分、类型、相似度或算法行为。"
+        "如果证据不足就如实说明。"
+    )
+    user_msg = (
+        f"候选电影: {movie_title} (movie_id={evidence.get('movie_id')})\n"
+        f"算法: {evidence.get('algorithm')}\n"
+        f"计算依据（JSON）: {json.dumps(evidence, ensure_ascii=False)}\n"
+        "请用 2-3 句中文解释为什么它被推荐，必须严格引用上面的依据。"
+    )
+    reply = client.complete([
+        {"role": "system", "content": system},
+        {"role": "user", "content": user_msg},
+    ], [])  # 解释不需要 tools
+    content = reply.get("content", "")
+    return content.strip() if isinstance(content, str) and content.strip() else "(LLM 返回为空)"
+
+
+class ExplainRequest(Input):
+    algorithm: str = Field(min_length=3, max_length=32)
+    movie_id: str = Field(min_length=1, max_length=32)
+    source: str = Field(default="ml", max_length=8)  # "ml" (历史用户) 或 "app" (当前登录)
+    subject_id: str = Field(min_length=1, max_length=32)  # ml_user_id 字符串 或 account_id 数字字符串
+    limit: int = Field(default=10, ge=1, le=50)
+
+
+@router.post("/assistant/explain-recommendation")
+def explain_recommendation(payload: ExplainRequest, request: Request):
+    """
+    给指定电影生成推荐依据 + AI 解释。
+
+    流程：
+      1. 找到该算法的 Provider，拿到 model_manifest_path
+      2. 构建 RecommendationRequest，调 provider.rated() 拿用户历史评分
+      3. 调算法 explain 函数收集真实依据
+      4. ChatClient 可用 → 调 LLM 生成中文解释；不可用 → 本地模板兜底
+    绝不破坏原有推荐 API。
+    支持 source="ml"（历史匿名用户，不需要登录）和 source="app"（当前登录账号）。
+    """
+    from recommender.contracts import Algorithm, PROVIDERS, RecommendationRequest
+
+    try:
+        algo = Algorithm(payload.algorithm)
+    except ValueError:
+        raise APIError(422, "INVALID_ALGORITHM", f"不支持的算法: {payload.algorithm}")
+
+    provider = PROVIDERS.get(algo)
+    if provider is None:
+        raise APIError(501, "ALGORITHM_NOT_IMPLEMENTED", f"算法 {payload.algorithm} 未实现")
+
+    # 构建 request → 拿用户评分历史
+    from ..config import DATASET, SPLIT
+    subject_uid = int(payload.subject_id)
+    rec_request = RecommendationRequest(payload.source, subject_uid, payload.limit, "business", DATASET, SPLIT)
+    rated = provider.rated(rec_request)
+
+    # 收集依据
+    evidence = {"found": False, "algorithm": payload.algorithm, "movie_id": payload.movie_id}
+    manifest = str(provider.model_manifest_path)
+
+    if algo == Algorithm.content:
+        from recommender.student.content_explain import explain as content_explain
+        evidence = content_explain(manifest, payload.movie_id, rated, tuple())
+    elif algo == Algorithm.itemcf:
+        from recommender.student.itemcf_explain import explain as itemcf_explain
+        from recommender.student.common import catalog_ids
+        evidence = itemcf_explain(manifest, payload.movie_id, rated, catalog_ids())
+    else:
+        evidence["reason"] = f"算法 {payload.algorithm} 的解释逻辑暂未实现（Content/ItemCF 可用）"
+
+    # 生成解释
+    settings = request.app.state.settings
+    movie_title = payload.movie_id  # 没查电影标题，用 id 占位
+    explanation_mode = "local_rules"
+    explanation = _local_explain(evidence)
+    try:
+        client = _client(settings)
+        if client.available and evidence.get("found"):
+            explanation = _llm_explain(client, evidence, movie_title)
+            explanation_mode = "llm"
+    except Exception as exc:
+        log.warning("LLM explain 失败，降级到本地规则: %s", exc)
+
+    # 审计
+    _audit({"kind": "explain_recommendation", "request_id": request.state.request_id,
+            "subject_key": f"{payload.source}:{payload.subject_id}",
+            "algorithm": payload.algorithm, "movie_id": payload.movie_id,
+            "evidence_found": evidence.get("found", False), "mode": explanation_mode})
+
+    return {
+        "algorithm": payload.algorithm,
+        "movie_id": payload.movie_id,
+        "subject": f"{payload.source}:{payload.subject_id}",
+        "evidence": evidence,
+        "explanation": explanation,
+        "explanation_mode": explanation_mode,
+    }
