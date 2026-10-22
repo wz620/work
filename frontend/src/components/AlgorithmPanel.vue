@@ -24,6 +24,7 @@ interface LocalMovieDetail {
   runtime?: string
   imdb_rating?: string
   poster_local?: string
+  tmdb_poster_path?: string
   imdb_id?: string
   omdb_title?: string
   omdb_year?: string
@@ -224,6 +225,7 @@ const reasons = computed(() => {
             <!-- MovieCard 传本地海报 -->
             <MovieCard v-if="movie" :movie="movie"
               :local-path="localDetails[item.movie_id]?.poster_local || null"
+              :tmdb-path="localDetails[item.movie_id]?.tmdb_poster_path || null"
               :director="localDetails[item.movie_id]?.director || null"
               :imdb-rating="localDetails[item.movie_id]?.imdb_rating || null"
               :runtime="localDetails[item.movie_id]?.runtime || null"

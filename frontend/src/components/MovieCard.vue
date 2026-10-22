@@ -7,6 +7,8 @@ const props = defineProps<{
   movie: Movie
   /** 本地海报路径（如 /posters/318.jpg） */
   localPath?: string | null
+  /** TMDB poster_path（如 /w342/xxx.jpg），走 image.tmdb.org CDN */
+  tmdbPath?: string | null
   director?: string | null
   imdbRating?: string | null
   runtime?: string | null
@@ -22,7 +24,7 @@ const actorsShort = computed(() => {
   <article class="movie-card">
     <RouterLink :to="`/movies/${movie.movie_id}`" :aria-label="`查看 ${movie.title_zh || movie.movielens_title} 详情`">
       <div class="poster-wrap">
-        <MoviePoster :path="movie.poster_path || undefined" :local-path="localPath || undefined" :title="movie.movielens_title" />
+        <MoviePoster :path="tmdbPath || movie.poster_path || undefined" :local-path="localPath || undefined" :title="movie.movielens_title" />
         <span class="movie-id">#{{ movie.movie_id }}</span>
         <span v-if="movie.rating" class="my-rating">我的评分 {{ movie.rating }}</span>
         <!-- IMDb 评分徽章（右下角） -->
