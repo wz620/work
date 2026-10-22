@@ -1,0 +1,15 @@
+{
+  "status": "completed",
+  "runtime_mode": "evaluation",
+  "algorithm": "popular",
+  "model_version": "popular-v1",
+  "task_sha256": "a42bd465a68ce30f1505fafb9ea7604334a636085eef08da099a5c938cdbd36a",
+  "model_manifest_sha256": "5621682faf895fbdd24ee0efba286f2d0f24b519af85c1e79794082dafb9ad7f",
+  "dataset_version": "rec-course-v3-train5-1.0.0",
+  "split_version": "temporal-v1-cold500-train5-v3",
+  "schema_version": "student-eight-v3",
+  "partition": "test",
+  "user_count": 4198,
+  "precision_at_10": 0.030657,
+  "recall_at_10": 0.051673
+}

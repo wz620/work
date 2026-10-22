@@ -1,0 +1,15 @@
+{
+  "status": "completed",
+  "runtime_mode": "evaluation",
+  "algorithm": "itemcf",
+  "model_version": "itemcf-v1",
+  "task_sha256": "8a802dbf621ae9ab3ba7fa62245a08c3d0d2016b52d1914240f8b174433c81a2",
+  "model_manifest_sha256": "c264a7f84cb10b3915fd0866f693e00f6d2c40b95da94955cfd54dbfdc1972d6",
+  "dataset_version": "rec-course-v3-train5-1.0.0",
+  "split_version": "temporal-v1-cold500-train5-v3",
+  "schema_version": "student-eight-v3",
+  "partition": "validation",
+  "user_count": 4209,
+  "precision_at_10": 0.047779,
+  "recall_at_10": 0.087563
+}

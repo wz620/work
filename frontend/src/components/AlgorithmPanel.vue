@@ -1,10 +1,21 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, ref, watch } from 'vue'
-import { Connection, InfoFilled } from '@element-plus/icons-vue'
+import { Connection, InfoFilled, Odometer } from '@element-plus/icons-vue'
 import http, { ApiError } from '../api'
 import StatePanel from './StatePanel.vue'
 import MovieCard from './MovieCard.vue'
 import type { AlgorithmResult, Movie } from '../types'
+
+/** 离线评价指标（Precision@10 / Recall@10） */
+interface Metrics {
+  algorithm: string
+  precision_at_10: number
+  recall_at_10: number
+  model_version: string
+  user_count: number
+}
+const metrics = ref<Metrics | null>(null)
+const metricsLoading = ref(false)
 
 const props = withDefaults(defineProps<{
   endpoint: string | null
@@ -95,6 +106,29 @@ async function fetchMovieDetails(runSeq: number) {
 }
 
 watch(() => props.endpoint, load, { immediate: true })
+
+/** 从 endpoint 推断算法名：/demo/.../recommendations/{algo} 或 /me/recommendations/{algo} */
+function parseAlgorithm(endpoint: string | null): string | null {
+  if (!endpoint) return null
+  const m = endpoint.match(/\/recommendations\/([a-z_]+)/)
+  return m?.[1] ?? null
+}
+
+/** 加载离线评价指标（validation 分区的 Precision@10 / Recall@10） */
+async function fetchMetrics(endpoint: string | null) {
+  const algo = parseAlgorithm(endpoint)
+  metrics.value = null
+  if (!algo) return
+  metricsLoading.value = true
+  try {
+    const res = await fetch(`/evaluation/${algo}-validation.json`, { cache: 'force-cache' })
+    if (res.ok) {
+      metrics.value = await res.json()
+    }
+  } catch { /* 指标文件不存在就算了 */ }
+  finally { metricsLoading.value = false }
+}
+watch(() => props.endpoint, () => fetchMetrics(props.endpoint), { immediate: true })
 
 /** 从 endpoint 推断历史用户 UID；/demo/history-users/{uid}/... → uid，/me/... → null（注册账号） */
 function parseHistoryUid(endpoint: string | null): string | null {
@@ -214,6 +248,21 @@ const reasons = computed(() => {
             · {{ result.dataset_version }}
             · {{ result.items.length }} 条推荐
           </p>
+          <!-- 离线评价指标卡片 -->
+          <div v-if="metrics || metricsLoading" class="metrics-bar">
+            <div v-if="metricsLoading" class="metrics-loading">加载评价指标…</div>
+            <template v-else-if="metrics">
+              <div class="metric-pill" title="Precision@10：推荐列表前 10 条中有多少是用户真正喜欢的">
+                <span class="metric-label">P@10</span>
+                <span class="metric-value">{{ (metrics.precision_at_10 * 100).toFixed(2) }}%</span>
+              </div>
+              <div class="metric-pill" title="Recall@10：用户所有真正喜欢的电影中，有多少被推荐进了前 10">
+                <span class="metric-label">R@10</span>
+                <span class="metric-value">{{ (metrics.recall_at_10 * 100).toFixed(2) }}%</span>
+              </div>
+              <span class="metric-sub">基于 validation 分区 · {{ metrics.user_count }} 用户</span>
+            </template>
+          </div>
           <p v-if="!result.items.length" class="muted">本次没有推荐结果。</p>
         </header>
 
@@ -269,6 +318,24 @@ const reasons = computed(() => {
 .results-header { margin-bottom: 16px; }
 .model-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; color: var(--text); font-size: 14px; }
 .model-meta strong { font-weight: 600; }
+/* 离线评价指标 */
+.metrics-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 10px; padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(59,130,246,0.06));
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: 6px;
+}
+.metrics-loading { font-size: 12px; color: var(--muted); font-style: italic; }
+.metric-pill {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 4px 12px; border-radius: 16px;
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.3);
+}
+.metric-label { font-size: 11px; font-weight: 600; color: #a5b4fc; letter-spacing: 0.08em; }
+.metric-value { font-size: 16px; font-weight: 700; color: #e0e7ff; font-variant-numeric: tabular-nums; }
+.metric-sub { font-size: 11px; color: var(--muted); }
 .recommendation-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px; }
 .recommendation-cell { position: relative; }
 .rank-badge {

@@ -21,6 +21,20 @@ const algorithmGroups = computed(() => [
 ])
 
 const evaluationError = ref<unknown>(null), evaluationPending = ref(false), evaluationMissing = ref(false)
+/** 离线评价汇总（5 算法在 validation 分区的 Precision@10 / Recall@10） */
+interface AlgoMetric { precision_at_10: number; recall_at_10: number; model_version: string; user_count: number }
+const metricsSummary = ref<{ algorithms: Record<string, AlgoMetric> } | null>(null)
+const metricsLoading = ref(false)
+
+async function fetchMetricsSummary() {
+  metricsLoading.value = true
+  try {
+    const res = await fetch('/evaluation/validation-summary.json', { cache: 'force-cache' })
+    if (res.ok) metricsSummary.value = await res.json()
+  } catch { /* 指标文件不存在就算了 */ }
+  finally { metricsLoading.value = false }
+}
+void fetchMetricsSummary()
 const subject = computed(() => source.value === 'ml' ? (selected.value ? `ml:${selected.value}` : '') : auth.account?.subject_key || '')
 const endpoint = computed(() => !subject.value ? null : source.value === 'ml'
   ? `/demo/history-users/${selected.value}/recommendations/${algorithm.value}`
@@ -169,14 +183,46 @@ void fetchUsers(); void fetchRegistry(); void fetchEvaluation(); void fetchRatin
         </section>
 
         <section class="evaluation-panel">
-          <div class="section-top"><h2>离线评价</h2><span class="small-label">PRECISION@10 / RECALL@10</span></div>
-          <StatePanel :loading="evaluationPending" :error="evaluationError" @retry="fetchEvaluation">
-            <div class="evaluation-empty">
-              <span class="status-pill">{{ evaluationMissing ? '尚未实现' : '等待接入' }}</span>
-              <p>暂无评价指标，等待离线评价程序接入。</p>
-              <small>训练仅允许使用固定 train；此页面不连接 evaluation 数据库。</small>
-            </div>
-          </StatePanel>
+          <div class="section-top"><h2>离线评价 · 算法对比</h2><span class="small-label">PRECISION@10 / RECALL@10</span></div>
+          <!-- 加载中 -->
+          <div v-if="metricsLoading" class="evaluation-empty">
+            <span class="status-pill">加载中</span>
+            <p>正在读取 validation 分区评价结果…</p>
+          </div>
+          <!-- 有指标 → 表格 -->
+          <div v-else-if="metricsSummary" class="metrics-table-wrap">
+            <el-table :data="Object.entries(metricsSummary.algorithms).map(([name, m]) => ({ name, ...m }))"
+              aria-label="算法评价对比表" stripe>
+              <el-table-column prop="name" label="算法" width="130">
+                <template #default="{ row }">
+                  <el-tag size="small" :type="row.name === 'itemcf' ? 'primary' : row.name === 'popular' ? 'success' : 'info'" effect="plain">{{ row.name }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="model_version" label="模型版本" width="120" />
+              <el-table-column label="Precision@10" width="150">
+                <template #default="{ row }">
+                  <span class="metric-cell">{{ (row.precision_at_10 * 100).toFixed(2) }}%</span>
+                  <div class="metric-bar-bg"><div class="metric-bar-fill" :style="{ width: (row.precision_at_10 * 100 * 2) + '%' }" /></div>
+                </template>
+              </el-table-column>
+              <el-table-column label="Recall@10" width="150">
+                <template #default="{ row }">
+                  <span class="metric-cell">{{ (row.recall_at_10 * 100).toFixed(2) }}%</span>
+                  <div class="metric-bar-bg"><div class="metric-bar-fill recall" :style="{ width: (row.recall_at_10 * 100 * 1.5) + '%' }" /></div>
+                </template>
+              </el-table-column>
+              <el-table-column prop="user_count" label="验证用户数" width="120" />
+            </el-table>
+            <p class="muted" style="font-size: 12px; margin-top: 10px;">
+              数据来源：recommender/student/evaluate.py 离线评价脚本 · validation 分区 · 留出集 rating ≥ 4.0 为正例
+            </p>
+          </div>
+          <!-- 无指标 -->
+          <div v-else class="evaluation-empty">
+            <span class="status-pill">{{ evaluationMissing ? '尚未实现' : '等待接入' }}</span>
+            <p>暂无评价指标，等待离线评价程序接入。</p>
+            <small>训练仅允许使用固定 train；此页面不连接 evaluation 数据库。</small>
+          </div>
         </section>
       </div>
     </div>
@@ -189,4 +235,17 @@ void fetchUsers(); void fetchRegistry(); void fetchEvaluation(); void fetchRatin
 .algorithm-scope strong { display: block; color: var(--text); font-weight: 500; }
 .lab-notice.notice-success { background: rgba(64, 158, 255, 0.08); border-left: 3px solid var(--accent); }
 .status-pill.status-ok { background: rgba(103, 194, 58, 0.15); color: #67c23a; border-color: #67c23a; }
+/* 评价对比表 */
+.metrics-table-wrap { padding: 0; }
+.metric-cell { font-weight: 600; font-variant-numeric: tabular-nums; color: #e0e7ff; display: inline-block; width: 70px; }
+.metric-bar-bg {
+  display: inline-block; width: 80px; height: 6px;
+  background: rgba(255,255,255,0.08); border-radius: 3px; vertical-align: middle; overflow: hidden; margin-left: 4px;
+}
+.metric-bar-fill {
+  height: 100%; background: linear-gradient(90deg, #6366f1, #3b82f6); border-radius: 3px;
+}
+.metric-bar-fill.recall {
+  background: linear-gradient(90deg, #10b981, #06b6d4);
+}
 </style>

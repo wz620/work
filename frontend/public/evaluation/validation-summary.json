@@ -1,0 +1,35 @@
+{
+  "partition": "validation",
+  "algorithms": {
+    "popular": {
+      "precision_at_10": 0.033096,
+      "recall_at_10": 0.056544,
+      "model_version": "popular-v1",
+      "user_count": 4209
+    },
+    "content": {
+      "precision_at_10": 0.004205,
+      "recall_at_10": 0.007449,
+      "model_version": "content-v1",
+      "user_count": 4209
+    },
+    "itemcf": {
+      "precision_at_10": 0.047779,
+      "recall_at_10": 0.087563,
+      "model_version": "itemcf-v1",
+      "user_count": 4209
+    },
+    "als": {
+      "precision_at_10": 0.023854,
+      "recall_at_10": 0.053067,
+      "model_version": "als-v1",
+      "user_count": 4209
+    },
+    "cold_start": {
+      "precision_at_10": 0.004205,
+      "recall_at_10": 0.007449,
+      "model_version": "cold_start-v1",
+      "user_count": 4209
+    }
+  }
+}
