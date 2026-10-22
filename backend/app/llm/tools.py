@@ -92,13 +92,17 @@ def _get_recommendations(arguments: dict, request, actor) -> dict:
         escaped = keyword.strip().replace("!", "!!").replace("%", "!%").replace("_", "!_")
         ids = [str(i["movie_id"]) for i in items]
         if ids:
+            placeholders = ",".join([":id" + str(idx) for idx in range(len(ids))])
+            params = {"term": "%" + escaped + "%"}
+            for idx, mid in enumerate(ids):
+                params["id" + str(idx)] = mid
             with request.app.state.db.connection() as conn:
                 rows = conn.execute(text(
-                    "SELECT movie_id, genres FROM movies WHERE movie_id = ANY(:ids) "
+                    f"SELECT movie_id, genres FROM movies WHERE movie_id IN ({placeholders}) "
                     "AND (LOWER(genres) LIKE LOWER(:term) ESCAPE '!' "
                     "OR LOWER(movielens_title) LIKE LOWER(:term) ESCAPE '!' "
                     "OR LOWER(COALESCE(title_zh,'')) LIKE LOWER(:term) ESCAPE '!')"),
-                    {"ids": ids, "term": "%" + escaped + "%"}).mappings().all()
+                    params).mappings().all()
             matched = {str(r["movie_id"]) for r in rows}
             filtered = [i for i in items if str(i["movie_id"]) in matched]
             filtered_count = len(items) - len(filtered)
