@@ -15,6 +15,29 @@ const userPage = ref(1), users = useRemote<Page<HistoryUser>>(), ratings = useRe
 const ratingPage = ref(1), available = ref<Algorithm[]>([]), registryError = ref<unknown>(null)
 const currentResult = ref<AlgorithmResult | null>(null)
 
+/** S1：RRF 融合面板 */
+interface FusionItem { movie_id: string; fusion_rank: number; score: number; recall_sources: string[]; recall_ranks: Record<string, number> }
+interface FusionData { sources: string[]; k: number; items: FusionItem[]; leg_summaries: { source: string; count: number }[] }
+const fusionData = ref<FusionData | null>(null)
+const fusionLoading = ref(false)
+const fusionError = ref<unknown>(null)
+
+const fusionEndpoint = computed(() => !subject.value ? null : source.value === 'ml'
+  ? `/demo/fusion/${selected.value}/recommendations` : null)  // 注册账号暂不支持 fusion
+
+async function fetchFusion() {
+  fusionData.value = null; fusionError.value = null
+  if (!fusionEndpoint.value) return
+  fusionLoading.value = true
+  try {
+    const res = await fetch(`/api/v1${fusionEndpoint.value}`, { credentials: 'include' })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    fusionData.value = await res.json()
+  } catch (e) { fusionError.value = e }
+  finally { fusionLoading.value = false }
+}
+watch(() => fusionEndpoint.value, fetchFusion, { immediate: true })
+
 const algorithmGroups = computed(() => [
   { label: '核心算法 · 学生实现', items: available.value.filter(a => ['content', 'itemcf', 'als'].includes(a.algorithm)) },
   { label: '配套策略 · 热门与冷启动', items: available.value.filter(a => ['popular', 'cold_start'].includes(a.algorithm)) },
@@ -161,6 +184,31 @@ void fetchUsers(); void fetchRegistry(); void fetchEvaluation(); void fetchRatin
           :empty-subject="source === 'ml' ? '请选择历史用户' : '登录后体验'"
           @result-updated="currentResult = $event" />
 
+        <!-- S1: RRF 融合面板 -->
+        <section v-if="fusionEndpoint" class="fusion-panel">
+          <div class="section-top">
+            <h2>RRF 多算法融合</h2>
+            <span class="small-label">
+              <el-tag size="small" effect="plain">S1</el-tag>
+              sources={{ fusionData?.sources?.join(' · ') || '-' }} · k={{ fusionData?.k ?? 60 }}
+            </span>
+          </div>
+          <StatePanel :loading="fusionLoading" :error="fusionError" @retry="fetchFusion">
+            <div v-if="fusionData?.items?.length" class="fusion-grid">
+              <div v-for="item in fusionData.items" :key="item.movie_id" class="fusion-card">
+                <div class="fusion-rank">{{ item.fusion_rank }}</div>
+                <div class="fusion-id">#{{ item.movie_id }}</div>
+                <div class="fusion-score">score {{ item.score.toFixed(4) }}</div>
+                <div class="fusion-sources">
+                  <span v-for="s in item.recall_sources" :key="s" class="fusion-source" :title="`rank ${item.recall_ranks[s]}`">
+                    {{ s }}<small>#{{ item.recall_ranks[s] }}</small>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </StatePanel>
+        </section>
+
         <section v-if="source === 'ml'" class="history-panel">
           <div class="section-top"><h2>历史评分</h2><span class="status-pill">{{ subject || '未选择用户' }} · 只读</span></div>
           <StatePanel :loading="ratings.loading.value" :error="ratings.error.value"
@@ -248,4 +296,15 @@ void fetchUsers(); void fetchRegistry(); void fetchEvaluation(); void fetchRatin
 .metric-bar-fill.recall {
   background: linear-gradient(90deg, #10b981, #06b6d4);
 }
+/* S1 RRF 融合面板 */
+.fusion-panel { margin-top: 22px; padding: 18px 22px; background: linear-gradient(135deg, rgba(99,102,241,0.06), rgba(59,130,246,0.04)); border: 1px solid rgba(99,102,241,0.25); border-radius: 14px; }
+.fusion-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-top: 12px; }
+.fusion-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; text-align: center; transition: border-color .2s; }
+.fusion-card:hover { border-color: rgba(99,102,241,0.5); }
+.fusion-rank { font-size: 26px; font-weight: 700; color: #e0e7ff; font-variant-numeric: tabular-nums; }
+.fusion-id { color: var(--muted); font-size: 12px; margin: 2px 0; }
+.fusion-score { font-size: 11px; color: #a5b4fc; margin-bottom: 8px; }
+.fusion-sources { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.fusion-source { font-size: 10px; padding: 2px 6px; background: rgba(99,102,241,0.15); border-radius: 4px; color: #c7d2fe; }
+.fusion-source small { color: #a5b4fc; margin-left: 2px; }
 </style>
