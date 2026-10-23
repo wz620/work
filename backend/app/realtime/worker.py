@@ -89,11 +89,16 @@ class RealtimeWorker(Thread):
         view 事件不写库（account_views 不存在，也不会影响 ALS 计算）。"""
         try:
             from sqlalchemy import text
-            from backend.app.main import app
-            db = app.state.db
+            from backend.app.config import ROOT, Settings
+            from backend.app.db import Database
+            import os
+            # 复用主进程相同的 Settings（读同一套 secrets / env）
+            if not hasattr(self, "_db"):
+                settings = Settings(_env_file=os.getenv("APP_ENV_FILE", str(ROOT / "backend/.env")))
+                self._db = Database(settings)
             mid = int(event.movie_id)
             aid = event.subject_id
-            with db.connection(write=True) as conn:
+            with self._db.connection(write=True) as conn:
                 if event.event_type == "rate" and event.rating:
                     conn.execute(text(
                         "INSERT INTO account_ratings (account_id, movie_id, rating) "

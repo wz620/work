@@ -15,6 +15,9 @@ router = APIRouter(tags=["学生算法预留边界"])
 
 
 class RecommendationQuery(Input):
+    # HTTP 客户端常带 ?__t=ts 之类的 cache-bust 参数；基础 Input 要求 extra=forbid，
+    # 这里覆盖为 allow，让推荐端点对这类无害噪声保持健壮。
+    model_config = {"extra": "allow"}
     limit: int = Field(default=10, ge=1, le=50)
 
 
