@@ -66,6 +66,11 @@ class RealtimeWorker(Thread):
 
     # ---- 离线端点与 Kafka 共用的消费逻辑 ---------------------------------------
     def consume(self, event: BehaviorEvent) -> RealtimeRecommendation:
+        # 1. 先把 rate / favorite 事件同步写 DB（让 ALS / ItemCF / Content 下次调用能读到新行为）
+        #    这就是"用户行为驱动推荐更新"的实现：写库 → 后续 recommend() 的 rated() 自然读到
+        if event.subject_kind == "app":
+            self._sync_event_to_db(event)
+
         window = self.bus.publish(event)
         degraded = len(window) < COLD_START_THRESHOLD
         algorithm = self.settings.realtime_cold_start_algorithm if degraded else self.settings.realtime_algorithm
@@ -78,6 +83,30 @@ class RealtimeWorker(Thread):
         with self._lock:
             self._cache[event.subject_key] = record
         return record
+
+    def _sync_event_to_db(self, event: BehaviorEvent) -> None:
+        """把 rate / favorite 事件落到 account_ratings / account_favorites。
+        view 事件不写库（account_views 不存在，也不会影响 ALS 计算）。"""
+        try:
+            from sqlalchemy import text
+            from backend.app.main import app
+            db = app.state.db
+            mid = int(event.movie_id)
+            aid = event.subject_id
+            with db.connection(write=True) as conn:
+                if event.event_type == "rate" and event.rating:
+                    conn.execute(text(
+                        "INSERT INTO account_ratings (account_id, movie_id, rating) "
+                        "VALUES (:aid, :mid, CAST(:rating AS DECIMAL(3,1))) "
+                        "ON DUPLICATE KEY UPDATE rating=VALUES(rating), updated_at=NOW(6)"
+                    ), {"aid": aid, "mid": mid, "rating": event.rating})
+                elif event.event_type == "favorite":
+                    conn.execute(text(
+                        "INSERT IGNORE INTO account_favorites (account_id, movie_id) VALUES (:aid, :mid)"
+                    ), {"aid": aid, "mid": mid})
+        except Exception as exc:
+            # 实时写入是"尽力而为"；失败不阻塞推荐主链路
+            log.warning("实时事件写库失败 event=%s reason=%s", event.event_id, exc)
 
     def cached(self, subject_key: str) -> RealtimeRecommendation | None:
         with self._lock:
