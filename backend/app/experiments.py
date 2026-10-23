@@ -56,3 +56,22 @@ def history_recommendations(ml_user_id: IdPath, algorithm: Algorithm, request: R
         if conn.execute(text("SELECT ml_user_id FROM history_users WHERE ml_user_id=:id"), {"id": uid}).first() is None:
             raise APIError(404, "HISTORY_USER_NOT_FOUND", "历史匿名用户不存在")
     return invoke(algorithm, "ml", uid, query.limit)
+
+
+@router.get("/public/recommendations/{algorithm}", response_model=RecommendationResult)
+def public_recommendations(algorithm: Algorithm, query: Annotated[RecommendationQuery, Query()]):
+    """匿名用户公共推荐：仅支持 popular（不依赖历史评分）。
+    绕过 invoke 内部的 business.read_history uid 存在性检查，直接用 PopularProvider + 空历史。"""
+    if algorithm != Algorithm.popular:
+        raise APIError(422, "ALGORITHM_REQUIRES_AUTH",
+            f"算法 {algorithm.value} 需要登录或历史用户身份以获取用户画像",
+            {"algorithm": algorithm.value})
+    from recommender.contracts import RecommendationRequest, RecommendationItem, RecommendationResult
+    from datetime import datetime, timezone
+    request = RecommendationRequest("app", 1, query.limit, "business", DATASET, SPLIT)
+    provider = PROVIDERS[Algorithm.popular]
+    # Popular.score 完全忽略 rated（只看 popularity.json），空历史即可
+    scores = provider.score(request, {}, set())
+    from recommender.student.common import select_top, utc_now, build_result
+    ranked = select_top(scores, set(), query.limit)
+    return build_result(Algorithm.popular, provider.model_version or "popular-v1", request, ranked)
