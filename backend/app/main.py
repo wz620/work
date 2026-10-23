@@ -32,6 +32,10 @@ def require_ready(request: Request) -> None:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings(_env_file=os.getenv("APP_ENV_FILE", str(ROOT / "backend/.env")))
     db = Database(settings)
+    # 注入同一 Database 实例给 recommender.business —— 实时 worker 写入和 recommend 读取
+    # 必须走同一个连接池，否则 MySQL REPEATABLE READ 隔离会让新写入对后续读不可见。
+    import recommender.business as _biz
+    _biz.set_database(db)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

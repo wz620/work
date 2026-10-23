@@ -9,8 +9,22 @@ from .data import require
 from .validation import check_request
 
 
+_injected_db = None
+
+
+def set_database(db) -> None:
+    """让业务 API 在启动时把自己的 Database 实例注入给离线推荐模块，
+    保证 worker 写入和 recommend 读取走同一个连接池/事务视图（MySQL 默认
+    REPEATABLE READ 隔离级别下，跨实例会导致新写入对后续读不可见）。"""
+    global _injected_db
+    _injected_db = db
+
+
 @lru_cache(maxsize=1)
 def _database():
+    if _injected_db is not None:
+        _injected_db.check_configuration()
+        return _injected_db
     # Deferred imports: offline evaluation never imports/opens this adapter.
     from backend.app.config import ROOT, Settings
     from backend.app.db import Database

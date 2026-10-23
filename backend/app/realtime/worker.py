@@ -66,10 +66,9 @@ class RealtimeWorker(Thread):
 
     # ---- 离线端点与 Kafka 共用的消费逻辑 ---------------------------------------
     def consume(self, event: BehaviorEvent) -> RealtimeRecommendation:
-        # 1. 先把 rate / favorite 事件同步写 DB（让 ALS / ItemCF / Content 下次调用能读到新行为）
-        #    这就是"用户行为驱动推荐更新"的实现：写库 → 后续 recommend() 的 rated() 自然读到
-        if event.subject_kind == "app":
-            self._sync_event_to_db(event)
+        # 注意：rate / favorite 事件的 DB 写入已由 router._write_event_to_db 在调用前完成，
+        # 那里用的是 request.app.state.db（跟 recommend() 的 read_history 同一个实例）。
+        # 这里只负责 InProcBus 窗口滑窗 + 推荐计算。
 
         window = self.bus.publish(event)
         degraded = len(window) < COLD_START_THRESHOLD
