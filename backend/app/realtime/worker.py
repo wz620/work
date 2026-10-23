@@ -65,14 +65,19 @@ class RealtimeWorker(Thread):
         self._stopped = Event()
 
     # ---- 离线端点与 Kafka 共用的消费逻辑 ---------------------------------------
-    def consume(self, event: BehaviorEvent) -> RealtimeRecommendation:
+    def consume(self, event: BehaviorEvent, preferred_algorithm: str | None = None) -> RealtimeRecommendation:
         # 注意：rate / favorite 事件的 DB 写入已由 router._write_event_to_db 在调用前完成，
         # 那里用的是 request.app.state.db（跟 recommend() 的 read_history 同一个实例）。
         # 这里只负责 InProcBus 窗口滑窗 + 推荐计算。
 
         window = self.bus.publish(event)
         degraded = len(window) < COLD_START_THRESHOLD
-        algorithm = self.settings.realtime_cold_start_algorithm if degraded else self.settings.realtime_algorithm
+        if degraded:
+            algorithm = self.settings.realtime_cold_start_algorithm
+        elif preferred_algorithm:
+            algorithm = preferred_algorithm
+        else:
+            algorithm = self.settings.realtime_algorithm
         token = batch_token(event.subject_key, event.event_id, algorithm)
         with self._lock:
             cached = self._cache.get(event.subject_key)

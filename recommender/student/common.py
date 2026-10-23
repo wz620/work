@@ -97,15 +97,22 @@ class BaseProvider:
                 from ..business import read_history
                 history = read_history(request)
             except Exception as exc:  # 业务历史适配错误原样抛出，不伪造结果
-                raise exc
+                raise
+            self._last_favorites = history.favorite_movie_ids
             return {fb.movie_id: float(fb.rating) for fb in history.ratings}
         if self.history_source is None:
+            self._last_favorites = ()
             return {}
+        self._last_favorites = ()
         return dict(frozen_history(self.history_source).get(str(request.subject_id), {}))
 
     def recommend(self, request: RecommendationRequest, *, exclude: set[str] | None = None):
         rated = self.rated(request)
         block = set(rated)
+        # 把已收藏但未评分的电影也加入 block——用户已表达过偏好，不应再推荐
+        favorites = getattr(self, "_last_favorites", ())
+        if favorites:
+            block |= {str(mid) for mid in favorites}
         if exclude:
             block |= {str(mid) for mid in exclude}
         scores = self.score(request, rated, block)

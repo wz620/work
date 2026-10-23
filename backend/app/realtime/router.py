@@ -90,7 +90,7 @@ def publish_event(payload: EventPayload, request: Request, actor: ActorDependenc
     # 保证后续 recommend() 读历史时能看到新行为。
     if event.subject_kind == "app":
         _write_event_to_db(request.app.state.db, event)
-    record = worker.consume(event)
+    record = worker.consume(event, preferred_algorithm=payload.preferred_algorithm)
     return EventAccepted(event=event.as_payload(), recommendation=RealtimeResponse(**record.as_payload()))
 
 

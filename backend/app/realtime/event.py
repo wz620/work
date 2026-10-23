@@ -51,6 +51,8 @@ class EventPayload(Input):
     rating: Decimal | None = None
     event_id: str | None = Field(default=None, min_length=1, max_length=64)
     occurred_at: str | None = Field(default=None, min_length=1, max_length=40)
+    # 前端可选指定实时算法（覆盖 settings.realtime_algorithm），方便演示切换
+    preferred_algorithm: str | None = Field(default=None, min_length=2, max_length=32)
 
     @field_validator("occurred_at")
     @classmethod

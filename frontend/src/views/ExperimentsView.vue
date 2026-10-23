@@ -69,18 +69,35 @@ const realtimeResult = ref<RealtimeResult | null>(null)
 const realtimeLoading = ref(false)
 const realtimeError = ref<unknown>(null)
 const realtimeEnabled = computed(() => source.value === 'app' && !!auth.account)
+// 实时算法切换下拉
+const realtimeAlgorithm = ref<string>('itemcf')
+const REALTIME_ALGORITHMS = [
+  { value: 'itemcf', label: 'ItemCF · 协同过滤', icon: '🤝' },
+  { value: 'content', label: 'Content · 内容推荐', icon: '🎬' },
+  { value: 'als', label: 'ALS · 矩阵分解', icon: '🧮' },
+  { value: 'popular', label: 'Popular · 热门榜单', icon: '🔥' },
+  { value: 'cold_start', label: 'Cold Start · 冷启动', icon: '❄️' },
+]
+
+function randRating(): number {
+  // 随机 2.5~5.0，步长 0.5 —— 让每次点同一按钮都产生不同行为
+  return Math.round((2.5 + Math.random() * 2.5) * 2) / 2
+}
 
 const BEHAVIOR_SEEDS = [
-  { event_type: 'rate', movie_id: '318', rating: 5.0, reason: '你刚给《肖申克的救赎》打了 5 分' },
-  { event_type: 'rate', movie_id: '2571', rating: 4.5, reason: '你给《黑客帝国》打了 4.5 分' },
-  { event_type: 'rate', movie_id: '50', rating: 4.0, reason: '你给《搏击俱乐部》打了 4 分' },
-  { event_type: 'favorite', movie_id: '296', reason: '你收藏了《宝贝儿》' },
+  { event_type: 'rate', movie_id: '318', label: '《肖申克的救赎》', base: 5.0 },
+  { event_type: 'rate', movie_id: '2571', label: '《黑客帝国》', base: 4.5 },
+  { event_type: 'rate', movie_id: '50',   label: '《搏击俱乐部》', base: 4.0 },
+  { event_type: 'rate', movie_id: '26',   label: '《迷失东京》', base: 4.5 },
+  { event_type: 'rate', movie_id: '100',  label: '《盗梦空间》', base: 5.0 },
+  { event_type: 'favorite', movie_id: '296', label: '《宝贝儿》（收藏）', base: 0 },
+  { event_type: 'favorite', movie_id: '2571', label: '《黑客帝国》（收藏）', base: 0 },
 ]
-async function triggerRealtime(event: typeof BEHAVIOR_SEEDS[number]) {
+async function triggerRealtime(seed: typeof BEHAVIOR_SEEDS[number]) {
   realtimeLoading.value = true; realtimeError.value = null; realtimeResult.value = null
   try {
-    const body: Record<string, unknown> = { event_type: event.event_type, movie_id: event.movie_id }
-    if (event.rating) body.rating = event.rating
+    const body: Record<string, unknown> = { event_type: seed.event_type, movie_id: seed.movie_id, preferred_algorithm: realtimeAlgorithm.value }
+    if (seed.event_type === 'rate') body.rating = randRating()  // 随机化让每次不同
     const res = await http.post<{ recommendation: RealtimeResult }>(
       '/demo/realtime/events', body)
     realtimeResult.value = res.data.recommendation
@@ -301,11 +318,15 @@ void fetchUsers(); void fetchRegistry(); void fetchEvaluation(); void fetchRatin
             <span class="small-label"><el-tag size="small" effect="plain">S3</el-tag>
               {{ realtimeResult?.degraded ? '⚡ InProcBus 兜底' : '📨 Kafka' }}
               · 最近事件窗口 {{ realtimeResult?.window_size ?? 20 }}</span>
+            <!-- 实时算法切换下拉 -->
+            <el-select v-model="realtimeAlgorithm" size="small" style="margin-left:auto;width:200px" @change="() => realtimeResult = null">
+              <el-option v-for="a in REALTIME_ALGORITHMS" :key="a.value" :value="a.value" :label="a.icon + ' ' + a.label" />
+            </el-select>
           </div>
           <div class="realtime-seeds">
             <el-button v-for="b in BEHAVIOR_SEEDS" :key="b.event_type + b.movie_id" size="small"
               :loading="realtimeLoading" @click="triggerRealtime(b)" plain>
-              {{ b.reason }}
+              {{ b.event_type === 'rate' ? '📊 评分 · ' : '⭐ 收藏 · ' }}{{ b.label }}
             </el-button>
           </div>
           <StatePanel :loading="realtimeLoading" :error="realtimeError"
